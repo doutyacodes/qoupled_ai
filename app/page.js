@@ -12,7 +12,7 @@ import Image from "next/image";
 
 export default function Home() {
   useEffect(() => {
-    redirect("/login");
+    redirect("/pricing");
   }, []);
 
   return (
