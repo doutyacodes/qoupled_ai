@@ -10,11 +10,32 @@ import {
   USER_EDUCATION,
   EDUCATION_LEVELS,
   USER_JOB,
-  JOB_TITLES
+  JOB_TITLES,
+  QUIZ_SEQUENCES
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { and, eq, ne, inArray, notInArray, isNotNull } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
+
+// MBTI compatibility matrix for personality-based matching
+const MBTI_COMPATIBILITY = {
+  'INTJ': ['ENFP', 'ENTP', 'INFJ', 'INFP'],
+  'INTP': ['ENFJ', 'ENTJ', 'INFJ', 'INTJ'],
+  'ENTJ': ['INFP', 'INTP', 'ENFJ', 'ENTP'],
+  'ENTP': ['INFJ', 'INTJ', 'ENFJ', 'ENTJ'],
+  'INFJ': ['ENFP', 'ENTP', 'INTJ', 'INTP'],
+  'INFP': ['ENFJ', 'ENTJ', 'INTJ', 'ENTP'],
+  'ENFJ': ['INFP', 'ISFP', 'INTP', 'INFJ'],
+  'ENFP': ['INTJ', 'INFJ', 'ENTJ', 'ENFJ'],
+  'ISTJ': ['ESFP', 'ESTP', 'ISFJ', 'ISTP'],
+  'ISFJ': ['ESFP', 'ESTP', 'ISTJ', 'ISFP'],
+  'ESTJ': ['ISFP', 'ISTP', 'ISTJ', 'ESFJ'],
+  'ESFJ': ['ISFP', 'ISTP', 'ISTJ', 'ESTJ'],
+  'ISTP': ['ESFJ', 'ESTJ', 'ISFJ', 'ISTJ'],
+  'ISFP': ['ESFJ', 'ESTJ', 'ENFJ', 'ESFP'],
+  'ESTP': ['ISFJ', 'ISTJ', 'ESFP', 'ISTP'],
+  'ESFP': ['ISTJ', 'ISFJ', 'ESTP', 'ISFP']
+};
 
 // Helper function to fetch user's quiz answers
 async function fetchUserAnswers(userId, testId = 2) {
@@ -141,6 +162,31 @@ function calculateCompatibilityScore(user1Answers, user2Answers, user1RedFlags, 
   };
 }
 
+// Calculate personality-based score using MBTI
+function calculatePersonalityScore(userMbti, matchMbti) {
+  const compatibleTypes = MBTI_COMPATIBILITY[userMbti] || [];
+  
+  if (compatibleTypes.includes(matchMbti)) {
+    const index = compatibleTypes.indexOf(matchMbti);
+    // Higher score for better matches (first in array = highest score)
+    return Math.max(70, 95 - (index * 5));
+  }
+  
+  // If not in compatibility list, calculate based on type similarities
+  const userFunctions = userMbti.split('');
+  const matchFunctions = matchMbti.split('');
+  let similarities = 0;
+  
+  for (let i = 0; i < 4; i++) {
+    if (userFunctions[i] === matchFunctions[i]) {
+      similarities++;
+    }
+  }
+  
+  // Base score on similarities
+  return Math.max(40, 50 + (similarities * 10));
+}
+
 // Helper function to calculate age from birth date
 function calculateAge(birthDate) {
   const today = new Date();
@@ -164,28 +210,14 @@ export async function GET(req) {
 
   const userData = authResult.decoded_Data;
   const currentUserId = userData.userId;
-  const testId = 2; // Compatibility quiz test ID
 
   try {
-    // Get current user's answers
-    const currentUserAnswers = await fetchUserAnswers(currentUserId, testId);
-    
-    if (currentUserAnswers.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'Please complete the compatibility quiz first',
-        matches: []
-      }, { status: 400 });
-    }
-
-    // Get current user's red flags
-    const currentUserRedFlags = await fetchUserRedFlags(currentUserId);
-
-    // Get current user's basic info for filtering
+    // Get current user's info including plan
     const currentUserInfo = await db
       .select({
         gender: USER.gender,
-        birthDate: USER.birthDate
+        birthDate: USER.birthDate,
+        currentPlan: USER.currentPlan
       })
       .from(USER)
       .where(eq(USER.id, currentUserId))
@@ -201,170 +233,329 @@ export async function GET(req) {
     }
 
     const currentUser = currentUserInfo[0];
+    let userPlan = currentUser.currentPlan || 'free';
 
-    // Get all potential matches (users who completed the quiz, excluding current user)
-    // Filter by opposite gender and reasonable age range
+    // If no plan is set, update to free plan
+    if (!currentUser.currentPlan) {
+      await db
+        .update(USER)
+        .set({ currentPlan: 'free' })
+        .where(eq(USER.id, currentUserId))
+        .execute();
+      userPlan = 'free';
+    }
+
+    // Check if user completed compatibility test (only for non-free plans)
+    let hasCompletedCompatibilityTest = false;
+    let useCompatibilityMatching = false;
+    let matchingType = 'personality';
+
+    if (userPlan !== 'free') {
+      const compatibilityAnswers = await fetchUserAnswers(currentUserId, 2);
+      hasCompletedCompatibilityTest = compatibilityAnswers.length > 0;
+      
+      if (hasCompletedCompatibilityTest) {
+        useCompatibilityMatching = true;
+        matchingType = 'compatibility';
+      }
+    }
+
+    // Get user's MBTI type for personality-based matching
+    let userMbtiType = null;
+    const userMbti = await db
+      .select({
+        mbtiType: QUIZ_SEQUENCES.type_sequence
+      })
+      .from(QUIZ_SEQUENCES)
+      .where(and(
+        eq(QUIZ_SEQUENCES.user_id, currentUserId),
+        eq(QUIZ_SEQUENCES.quiz_id, 1), // Personality test
+        eq(QUIZ_SEQUENCES.isCompleted, true)
+      ))
+      .limit(1)
+      .execute();
+
+    if (userMbti.length > 0) {
+      userMbtiType = userMbti[0].mbtiType?.trim()?.toUpperCase();
+    }
+
+    // If no personality test completed, suggest taking it
+    if (!userMbtiType && !useCompatibilityMatching) {
+      return NextResponse.json({
+        success: false,
+        message: 'Please complete your personality assessment first',
+        matches: [],
+        userPlan,
+        hasCompletedCompatibilityTest,
+        matchingType,
+        needsPersonalityTest: true
+      }, { status: 400 });
+    }
+
+    // Calculate age range for filtering
     const currentAge = calculateAge(currentUser.birthDate);
     const minAge = Math.max(18, currentAge - 10);
     const maxAge = currentAge + 10;
 
-    const potentialMatches = await db
-      .select({
-        id: USER.id,
-        username: USER.username,
-        birthDate: USER.birthDate,
-        gender: USER.gender,
-        profileImageUrl: USER.profileImageUrl,
-        country: USER.country,
-        state: USER.state,
-        city: USER.city,
-        religion: USER.religion,
-        height: USER.height,
-        weight: USER.weight,
-        income: USER.income,
-        isProfileVerified: USER.isProfileVerified,
-        isProfileComplete: USER.isProfileComplete
-      })
-      .from(USER)
-      .innerJoin(TEST_PROGRESS, eq(TEST_PROGRESS.user_id, USER.id))
-      .where(
-        and(
-          ne(USER.id, currentUserId),
-          eq(TEST_PROGRESS.test_id, testId),
-          // Filter by opposite gender (for heterosexual matching)
-          ne(USER.gender, currentUser.gender),
-          isNotNull(USER.username),
-          isNotNull(USER.birthDate)
-        )
-      )
-      .groupBy(USER.id)
-      .execute();
+    let potentialMatches = [];
 
-    // Filter by age range
-    const ageFilteredMatches = potentialMatches.filter(user => {
-      const userAge = calculateAge(user.birthDate);
-      return userAge >= minAge && userAge <= maxAge;
-    });
+    if (useCompatibilityMatching) {
+      // Use compatibility-based matching for premium users who completed the test
+      const currentUserAnswers = await fetchUserAnswers(currentUserId, 2);
+      const currentUserRedFlags = await fetchUserRedFlags(currentUserId);
 
-    // Calculate compatibility scores for each potential match
-    const matchesWithScores = [];
-
-    for (const potentialMatch of ageFilteredMatches) {
-      // Check if compatibility already calculated
-      const existingCompatibility = await db
-        .select()
-        .from(COMPATIBILITY_RESULTS)
+      // Get users who completed compatibility test
+      potentialMatches = await db
+        .select({
+          id: USER.id,
+          username: USER.username,
+          birthDate: USER.birthDate,
+          gender: USER.gender,
+          profileImageUrl: USER.profileImageUrl,
+          country: USER.country,
+          state: USER.state,
+          city: USER.city,
+          religion: USER.religion,
+          height: USER.height,
+          weight: USER.weight,
+          income: USER.income,
+          isProfileVerified: USER.isProfileVerified,
+          isProfileComplete: USER.isProfileComplete
+        })
+        .from(USER)
+        .innerJoin(TEST_PROGRESS, eq(TEST_PROGRESS.user_id, USER.id))
         .where(
           and(
-            eq(COMPATIBILITY_RESULTS.user_1_id, currentUserId),
-            eq(COMPATIBILITY_RESULTS.user_2_id, potentialMatch.id),
-            eq(COMPATIBILITY_RESULTS.test_id, testId)
+            ne(USER.id, currentUserId),
+            eq(TEST_PROGRESS.test_id, 2), // Compatibility test
+            ne(USER.gender, currentUser.gender),
+            isNotNull(USER.username),
+            isNotNull(USER.birthDate)
           )
         )
-        .limit(1)
+        .groupBy(USER.id)
         .execute();
 
-      let compatibilityData;
+      // Calculate compatibility scores
+      const matchesWithScores = [];
+      for (const potentialMatch of potentialMatches) {
+        const userAge = calculateAge(potentialMatch.birthDate);
+        if (userAge < minAge || userAge > maxAge) continue;
 
-      if (existingCompatibility.length > 0) {
-        // Use existing score
-        compatibilityData = {
-          compatibilityScore: existingCompatibility[0].compatibilityScore,
-          hasRedFlags: existingCompatibility[0].redFlags ? JSON.parse(existingCompatibility[0].redFlags).length > 0 : false,
-          redFlagDetails: existingCompatibility[0].redFlags ? JSON.parse(existingCompatibility[0].redFlags) : []
-        };
-      } else {
-        // Calculate new score
-        const matchAnswers = await fetchUserAnswers(potentialMatch.id, testId);
-        const matchRedFlags = await fetchUserRedFlags(potentialMatch.id);
-        
-        if (matchAnswers.length === currentUserAnswers.length) {
-          // Get answer info for red flag checking
-          const allRedFlagAnswerIds = [
-            ...currentUserRedFlags.map(rf => rf.answerId),
-            ...matchRedFlags.map(rf => rf.answerId)
-          ];
-          const answerInfo = await fetchAnswerInfo(allRedFlagAnswerIds);
-          
-          compatibilityData = calculateCompatibilityScore(
-            currentUserAnswers,
-            matchAnswers,
-            currentUserRedFlags,
-            matchRedFlags,
-            answerInfo
-          );
+        // Check if compatibility already calculated
+        const existingCompatibility = await db
+          .select()
+          .from(COMPATIBILITY_RESULTS)
+          .where(
+            and(
+              eq(COMPATIBILITY_RESULTS.user_1_id, currentUserId),
+              eq(COMPATIBILITY_RESULTS.user_2_id, potentialMatch.id),
+              eq(COMPATIBILITY_RESULTS.test_id, 2)
+            )
+          )
+          .limit(1)
+          .execute();
 
-          // Store the result for future use
-          await db.insert(COMPATIBILITY_RESULTS).values({
-            test_id: testId,
-            user_1_id: currentUserId,
-            user_2_id: potentialMatch.id,
-            compatibilityScore: compatibilityData.compatibilityScore,
-            redFlags: JSON.stringify(compatibilityData.redFlagDetails || [])
-          }).execute();
+        let compatibilityData;
+
+        if (existingCompatibility.length > 0) {
+          compatibilityData = {
+            compatibilityScore: existingCompatibility[0].compatibilityScore,
+            hasRedFlags: existingCompatibility[0].redFlags ? JSON.parse(existingCompatibility[0].redFlags).length > 0 : false,
+            redFlagDetails: existingCompatibility[0].redFlags ? JSON.parse(existingCompatibility[0].redFlags) : []
+          };
         } else {
-          // Skip if answer counts don't match
-          continue;
+          const matchAnswers = await fetchUserAnswers(potentialMatch.id, 2);
+          const matchRedFlags = await fetchUserRedFlags(potentialMatch.id);
+          
+          if (matchAnswers.length === currentUserAnswers.length) {
+            const allRedFlagAnswerIds = [
+              ...currentUserRedFlags.map(rf => rf.answerId),
+              ...matchRedFlags.map(rf => rf.answerId)
+            ];
+            const answerInfo = await fetchAnswerInfo(allRedFlagAnswerIds);
+            
+            compatibilityData = calculateCompatibilityScore(
+              currentUserAnswers,
+              matchAnswers,
+              currentUserRedFlags,
+              matchRedFlags,
+              answerInfo
+            );
+
+            // Store the result
+            await db.insert(COMPATIBILITY_RESULTS).values({
+              test_id: 2,
+              user_1_id: currentUserId,
+              user_2_id: potentialMatch.id,
+              compatibilityScore: compatibilityData.compatibilityScore,
+              redFlags: JSON.stringify(compatibilityData.redFlagDetails || [])
+            }).execute();
+          } else {
+            continue;
+          }
         }
+
+        // Get additional profile information
+        const education = await db
+          .select({
+            degree: USER_EDUCATION.degree,
+            levelName: EDUCATION_LEVELS.levelName,
+            graduationYear: USER_EDUCATION.graduationYear
+          })
+          .from(USER_EDUCATION)
+          .leftJoin(EDUCATION_LEVELS, eq(USER_EDUCATION.education_level_id, EDUCATION_LEVELS.id))
+          .where(eq(USER_EDUCATION.user_id, potentialMatch.id))
+          .limit(1)
+          .execute();
+
+        const job = await db
+          .select({
+            title: JOB_TITLES.title,
+            company: USER_JOB.company,
+            location: USER_JOB.location
+          })
+          .from(USER_JOB)
+          .leftJoin(JOB_TITLES, eq(USER_JOB.job_title_id, JOB_TITLES.id))
+          .where(eq(USER_JOB.user_id, potentialMatch.id))
+          .limit(1)
+          .execute();
+
+        matchesWithScores.push({
+          ...potentialMatch,
+          age: userAge,
+          compatibilityScore: compatibilityData.compatibilityScore,
+          hasRedFlags: compatibilityData.hasRedFlags,
+          redFlagDetails: compatibilityData.redFlagDetails,
+          education: education[0] || null,
+          job: job[0] || null,
+          matchQuality: compatibilityData.compatibilityScore >= 80 ? 'exceptional' : 
+                       compatibilityData.compatibilityScore >= 60 ? 'great' : 'good'
+        });
       }
 
-      // Get additional profile information
-      const education = await db
+      // Sort by compatibility score and take top 10
+      potentialMatches = matchesWithScores
+        .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
+        .slice(0, 10);
+
+    } else {
+      // Use personality-based matching (MBTI) for free users or premium users without compatibility test
+      // Get users with completed personality tests
+      potentialMatches = await db
         .select({
-          degree: USER_EDUCATION.degree,
-          levelName: EDUCATION_LEVELS.levelName,
-          graduationYear: USER_EDUCATION.graduationYear
+          id: USER.id,
+          username: USER.username,
+          birthDate: USER.birthDate,
+          gender: USER.gender,
+          profileImageUrl: USER.profileImageUrl,
+          country: USER.country,
+          state: USER.state,
+          city: USER.city,
+          religion: USER.religion,
+          height: USER.height,
+          weight: USER.weight,
+          income: USER.income,
+          isProfileVerified: USER.isProfileVerified,
+          isProfileComplete: USER.isProfileComplete,
+          mbtiType: QUIZ_SEQUENCES.type_sequence
         })
-        .from(USER_EDUCATION)
-        .leftJoin(EDUCATION_LEVELS, eq(USER_EDUCATION.education_level_id, EDUCATION_LEVELS.id))
-        .where(eq(USER_EDUCATION.user_id, potentialMatch.id))
-        .limit(1)
+        .from(USER)
+        .innerJoin(QUIZ_SEQUENCES, eq(QUIZ_SEQUENCES.user_id, USER.id))
+        .where(
+          and(
+            ne(USER.id, currentUserId),
+            eq(QUIZ_SEQUENCES.quiz_id, 1), // Personality test
+            eq(QUIZ_SEQUENCES.isCompleted, true),
+            ne(USER.gender, currentUser.gender),
+            isNotNull(USER.username),
+            isNotNull(USER.birthDate)
+          )
+        )
         .execute();
 
-      const job = await db
-        .select({
-          title: JOB_TITLES.title,
-          company: USER_JOB.company,
-          location: USER_JOB.location
-        })
-        .from(USER_JOB)
-        .leftJoin(JOB_TITLES, eq(USER_JOB.job_title_id, JOB_TITLES.id))
-        .where(eq(USER_JOB.user_id, potentialMatch.id))
-        .limit(1)
-        .execute();
+      // Calculate personality scores and filter by age
+      const matchesWithScores = potentialMatches
+        .map(match => {
+          const userAge = calculateAge(match.birthDate);
+          if (userAge < minAge || userAge > maxAge) return null;
 
-      matchesWithScores.push({
-        ...potentialMatch,
-        age: calculateAge(potentialMatch.birthDate),
-        compatibilityScore: compatibilityData.compatibilityScore,
-        hasRedFlags: compatibilityData.hasRedFlags,
-        redFlagDetails: compatibilityData.redFlagDetails,
-        education: education[0] || null,
-        job: job[0] || null,
-        // Calculate match quality
-        matchQuality: compatibilityData.compatibilityScore >= 80 ? 'exceptional' : 
-                     compatibilityData.compatibilityScore >= 60 ? 'great' : 'good'
-      });
+          const matchMbtiType = match.mbtiType?.trim()?.toUpperCase();
+          if (!matchMbtiType || !userMbtiType) return null;
+
+          const personalityScore = calculatePersonalityScore(userMbtiType, matchMbtiType);
+
+          return {
+            ...match,
+            age: userAge,
+            personalityScore,
+            hasRedFlags: false, // No red flag checking for personality matching
+            redFlagDetails: [],
+            matchQuality: personalityScore >= 80 ? 'exceptional' : 
+                         personalityScore >= 60 ? 'great' : 'good'
+          };
+        })
+        .filter(match => match !== null);
+
+      // Get additional profile information for each match
+      const enrichedMatches = [];
+      for (const match of matchesWithScores) {
+        const education = await db
+          .select({
+            degree: USER_EDUCATION.degree,
+            levelName: EDUCATION_LEVELS.levelName,
+            graduationYear: USER_EDUCATION.graduationYear
+          })
+          .from(USER_EDUCATION)
+          .leftJoin(EDUCATION_LEVELS, eq(USER_EDUCATION.education_level_id, EDUCATION_LEVELS.id))
+          .where(eq(USER_EDUCATION.user_id, match.id))
+          .limit(1)
+          .execute();
+
+        const job = await db
+          .select({
+            title: JOB_TITLES.title,
+            company: USER_JOB.company,
+            location: USER_JOB.location
+          })
+          .from(USER_JOB)
+          .leftJoin(JOB_TITLES, eq(USER_JOB.job_title_id, JOB_TITLES.id))
+          .where(eq(USER_JOB.user_id, match.id))
+          .limit(1)
+          .execute();
+
+        enrichedMatches.push({
+          ...match,
+          education: education[0] || null,
+          job: job[0] || null
+        });
+      }
+
+      // Sort by personality score and take top 10
+      potentialMatches = enrichedMatches
+        .sort((a, b) => b.personalityScore - a.personalityScore)
+        .slice(0, 10);
     }
-
-    // Sort by compatibility score (highest first) and take top 10
-    const topMatches = matchesWithScores
-      .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
-      .slice(0, 10);
 
     return NextResponse.json({
       success: true,
-      message: 'Top matches retrieved successfully',
-      matches: topMatches,
-      totalPotentialMatches: matchesWithScores.length
+      message: 'Matches retrieved successfully',
+      matches: potentialMatches,
+      userPlan,
+      hasCompletedCompatibilityTest,
+      matchingType,
+      totalPotentialMatches: potentialMatches.length
     }, { status: 200 });
 
   } catch (error) {
-    console.error("Error fetching top matches:", error);
+    console.error("Error fetching matches:", error);
     return NextResponse.json({
       success: false,
       message: 'Error fetching matches',
-      matches: []
+      matches: [],
+      userPlan: 'free',
+      hasCompletedCompatibilityTest: false,
+      matchingType: 'personality'
     }, { status: 500 });
   }
 }

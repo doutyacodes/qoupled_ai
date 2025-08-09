@@ -1,5 +1,5 @@
 import { db } from "@/utils";
-import { USER, USER_PREFERENCES, PREFERENCE_CATEGORIES, PREFERENCE_OPTIONS } from "@/utils/schema";
+import { USER } from "@/utils/schema";
 import { eq } from "drizzle-orm/expressions";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
@@ -7,12 +7,27 @@ import { NextResponse } from "next/server";
 export async function POST(req) {
   try {
     const data = await req.json();
-    const { username, password, birthDate, gender, preferences, inviteUserId } = data;
+    const { 
+      username, 
+      password, 
+      birthDate, 
+      gender,
+      phone,
+      email,
+      country,
+      state,
+      city,
+      religion,
+      caste,
+      height,
+      weight,
+      income
+    } = data;
 
     // Validate required fields
     if (!username || !password || !birthDate || !gender) {
       return NextResponse.json(
-        { message: "All required fields must be provided" },
+        { message: "Username, password, birth date, and gender are required" },
         { status: 400 }
       );
     }
@@ -25,9 +40,24 @@ export async function POST(req) {
 
     if (existingUser) {
       return NextResponse.json(
-        { message: "User already exists" },
+        { message: "Username already exists. Please choose a different username." },
         { status: 400 }
       );
+    }
+
+    // Check if email already exists (if provided)
+    if (email) {
+      const [existingEmail] = await db
+        .select()
+        .from(USER)
+        .where(eq(USER.email, email));
+
+      if (existingEmail) {
+        return NextResponse.json(
+          { message: "Email already registered. Please use a different email." },
+          { status: 400 }
+        );
+      }
     }
 
     // Validate age (must be 18+)
@@ -44,97 +74,92 @@ export async function POST(req) {
       );
     }
 
-    // Start transaction
-    let newUser;
-    let userPreferencesCount = 0;
-    
+    // Validate email format (if provided)
+    if (email && !/\S+@\S+\.\S+/.test(email)) {
+      return NextResponse.json(
+        { message: "Please enter a valid email address" },
+        { status: 400 }
+      );
+    }
+
+    // Validate phone format (if provided)
+    if (phone && !/^\+?[\d\s-()]{10,}$/.test(phone)) {
+      return NextResponse.json(
+        { message: "Please enter a valid phone number" },
+        { status: 400 }
+      );
+    }
+
+    // Validate height and weight (if provided)
+    if (height && (isNaN(height) || height < 50 || height > 300)) {
+      return NextResponse.json(
+        { message: "Please enter a valid height between 50-300 cm" },
+        { status: 400 }
+      );
+    }
+
+    if (weight && (isNaN(weight) || weight < 20 || weight > 300)) {
+      return NextResponse.json(
+        { message: "Please enter a valid weight between 20-300 kg" },
+        { status: 400 }
+      );
+    }
+
     try {
-      // Insert user details into the database
-      const result = await db.insert(USER).values({
-        username: username,
-        gender: gender,
-        birthDate: birthDateObj,
+      // Prepare user data for insertion
+      const userData = {
+        username: username.trim(),
         password: password, // Should be encrypted before this point
-      });
+        birthDate: birthDateObj,
+        gender: gender,
+        phone: phone?.trim() || null,
+        email: email?.trim()?.toLowerCase() || null,
+        country: country?.trim() || null,
+        state: state?.trim() || null,
+        city: city?.trim() || null,
+        religion: religion?.trim() || null,
+        caste: caste?.trim() || null,
+        height: height ? parseFloat(height) : null,
+        weight: weight ? parseFloat(weight) : null,
+        income: income?.trim() || null,
+        // Set default values for other fields
+        currentPlan: 'free',
+        isVerified: false,
+        profileBoostActive: false,
+        subscriptionStatus: 'trial',
+        isPhoneVerified: false,
+        isEmailVerified: false,
+        isProfileVerified: false,
+        isProfileComplete: true // Mark as complete since we collected all basic info
+      };
+
+      // Insert user into the database
+      const result = await db.insert(USER).values(userData);
 
       if (!result) {
         throw new Error("User registration failed");
       }
 
       // Fetch the newly created user
-      [newUser] = await db
-        .select()
+      const [newUser] = await db
+        .select({
+          id: USER.id,
+          username: USER.username,
+          gender: USER.gender,
+          birthDate: USER.birthDate,
+          email: USER.email,
+          phone: USER.phone,
+          country: USER.country,
+          state: USER.state,
+          city: USER.city,
+          currentPlan: USER.currentPlan,
+          isProfileComplete: USER.isProfileComplete
+        })
         .from(USER)
         .where(eq(USER.username, username));
 
       if (!newUser) {
         throw new Error("User not found after registration");
-      }
-
-      // Save user preferences if provided
-      if (preferences && Object.keys(preferences).length > 0) {
-        const preferencePromises = [];
-        
-        for (const [categoryId, optionId] of Object.entries(preferences)) {
-          // Validate that the category and option exist
-          const [category] = await db
-            .select()
-            .from(PREFERENCE_CATEGORIES)
-            .where(eq(PREFERENCE_CATEGORIES.id, parseInt(categoryId)));
-            
-          const [option] = await db
-            .select()
-            .from(PREFERENCE_OPTIONS)
-            .where(eq(PREFERENCE_OPTIONS.id, parseInt(optionId)));
-
-          if (category && option) {
-            preferencePromises.push(
-              db.insert(USER_PREFERENCES).values({
-                user_id: newUser.id,
-                category_id: parseInt(categoryId),
-                option_id: parseInt(optionId),
-              })
-            );
-          }
-        }
-
-        // Execute all preference insertions
-        if (preferencePromises.length > 0) {
-          await Promise.all(preferencePromises);
-          userPreferencesCount = preferencePromises.length;
-        }
-      }
-
-      // Check if profile should be marked as complete
-      const totalRequiredCategories = await db
-        .select()
-        .from(PREFERENCE_CATEGORIES)
-        .where(eq(PREFERENCE_CATEGORIES.is_active, true));
-
-      const isProfileComplete = userPreferencesCount >= totalRequiredCategories.length;
-
-      // Update user profile completion status
-      if (isProfileComplete) {
-        await db
-          .update(USER)
-          .set({ isProfileComplete: true })
-          .where(eq(USER.id, newUser.id));
-      }
-
-      // Handle invitation if provided
-      if (inviteUserId) {
-        try {
-          // Save invitation relationship
-          // You would implement this based on your INVITATIONS table structure
-          // await db.insert(INVITATIONS).values({
-          //   user_id: newUser.id,
-          //   inviter_id: parseInt(inviteUserId),
-          //   compatibility_checked: false
-          // });
-        } catch (inviteError) {
-          console.warn("Failed to save invitation:", inviteError);
-          // Don't fail the entire registration for invitation errors
-        }
       }
 
       // Generate JWT token
@@ -147,14 +172,20 @@ export async function POST(req) {
         { expiresIn: '30d' } // Token expires in 30 days
       );
 
+      // Calculate age for response
+      const userAge = today.getFullYear() - birthDateObj.getFullYear();
+
       // Prepare response data (exclude sensitive information)
       const responseUser = {
         id: newUser.id,
         username: newUser.username,
         gender: newUser.gender,
-        birthDate: newUser.birthDate,
-        isProfileComplete: isProfileComplete,
-        preferencesCount: userPreferencesCount
+        age: userAge,
+        email: newUser.email,
+        phone: newUser.phone,
+        location: [newUser.city, newUser.state, newUser.country].filter(Boolean).join(', '),
+        currentPlan: newUser.currentPlan,
+        isProfileComplete: newUser.isProfileComplete
       };
 
       return NextResponse.json(
@@ -162,7 +193,7 @@ export async function POST(req) {
           data: { 
             user: responseUser, 
             token,
-            message: "User registered successfully"
+            message: "Account created successfully! Welcome to Qoupled!"
           },
           success: true
         },
@@ -170,27 +201,27 @@ export async function POST(req) {
       );
 
     } catch (transactionError) {
-      // If any part of the transaction fails, we should clean up
-      // In a real application, you'd use proper database transactions
-      
-      // Try to delete the user if it was created but preferences failed
-      if (newUser) {
-        try {
-          await db.delete(USER).where(eq(USER.id, newUser.id));
-        } catch (cleanupError) {
-          console.error("Failed to cleanup user after error:", cleanupError);
-        }
-      }
-      
+      console.error("Database transaction error:", transactionError);
       throw transactionError;
     }
 
   } catch (error) {
     console.error("Registration error:", error);
     
+    // Handle specific database errors
+    if (error.code === 'ER_DUP_ENTRY') {
+      return NextResponse.json(
+        { 
+          message: "Username or email already exists. Please choose different credentials.",
+          success: false 
+        },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { 
-        message: error.message || "An unexpected error occurred during registration",
+        message: error.message || "An unexpected error occurred during registration. Please try again.",
         success: false 
       },
       { status: 500 }
@@ -198,50 +229,14 @@ export async function POST(req) {
   }
 }
 
-// GET endpoint to fetch preference categories and options for the signup form
+// Health check endpoint
 export async function GET(req) {
-  try {
-    // Fetch all active preference categories
-    const categories = await db
-      .select()
-      .from(PREFERENCE_CATEGORIES)
-      .where(eq(PREFERENCE_CATEGORIES.is_active, true))
-      .orderBy(PREFERENCE_CATEGORIES.id);
-
-    // Fetch all active preference options
-    const options = await db
-      .select()
-      .from(PREFERENCE_OPTIONS)
-      .where(eq(PREFERENCE_OPTIONS.is_active, true))
-      .orderBy(PREFERENCE_OPTIONS.category_id, PREFERENCE_OPTIONS.id);
-
-    // Group options by category
-    const optionsByCategory = {};
-    options.forEach(option => {
-      if (!optionsByCategory[option.category_id]) {
-        optionsByCategory[option.category_id] = [];
-      }
-      optionsByCategory[option.category_id].push(option);
-    });
-
-    return NextResponse.json(
-      {
-        categories,
-        optionsByCategory,
-        success: true
-      },
-      { status: 200 }
-    );
-
-  } catch (error) {
-    console.error("Error fetching preference data:", error);
-    
-    return NextResponse.json(
-      { 
-        message: "Failed to fetch preference data",
-        success: false 
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    {
+      message: "Signup API is working",
+      timestamp: new Date().toISOString(),
+      success: true
+    },
+    { status: 200 }
+  );
 }

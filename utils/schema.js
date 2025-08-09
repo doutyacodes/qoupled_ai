@@ -13,46 +13,7 @@ export const USER_DETAILS = mysqlTable('user_details', {
     university: varchar('university', { length: 50 }).notNull(),
     citizenship: varchar('citizenship', { length: 20 }).notNull()
 });
-// export const USER=mysqlTable('user',{
-//     id: int('id').notNull().primaryKey().autoincrement(),
-//     username: varchar('username', { length: 255 }).notNull(),
-//     birthDate: date('birthDate').notNull(),
-//     password:varchar('password',{length:150}).default(null),
-//     gender:varchar('gender',{length:150}).default(null)
-// })
 
-// Existing USER table - Extended
-export const USER = mysqlTable('user', {
-  id: int('id').notNull().primaryKey().autoincrement(),
-  username: varchar('username', { length: 255 }).notNull(),
-  birthDate: date('birthDate').notNull(),
-  gender: varchar('gender', { length: 150 }).default(null),
-  password: varchar('password', { length: 150 }).default(null),
-
-  // New fields
-  phone: varchar('phone', { length: 20 }).default(null),
-  isPhoneVerified: boolean('is_phone_verified').default(false),
-
-  email: varchar('email', { length: 255 }).default(null),
-  isEmailVerified: boolean('is_email_verified').default(false),
-
-  profileImageUrl: varchar('profile_image_url', { length: 500 }).default(null),
-
-  country: varchar('country', { length: 150 }).default(null),
-  state: varchar('state', { length: 150 }).default(null),
-  city: varchar('city', { length: 150 }).default(null),
-
-  religion: varchar('religion', { length: 150 }).default(null),
-  caste: varchar('caste', { length: 150 }).default(null),
-
-  height: decimal('height', { precision: 5, scale: 2 }).default(null), // e.g., 170.00 cm
-  weight: decimal('weight', { precision: 5, scale: 2 }).default(null), // e.g., 65.00 kg
-
-  income: varchar('income', { length: 100 }).default(null),
-
-  isProfileVerified: boolean('is_profile_verified').default(false),
-  isProfileComplete: boolean('is_profile_complete').default(false), // check during update
-});
 
 export const EDUCATION_LEVELS = mysqlTable('education_levels', {
   id: int('id').notNull().primaryKey().autoincrement(),
@@ -236,14 +197,7 @@ export const PEOPLE_PAIR = mysqlTable('people_pair', {
     }
   });
 
-  export const CONNECTIONS = mysqlTable("connections", {
-    connectionId: int("connection_id").primaryKey().autoincrement(),
-    senderId: int("sender_id").notNull().references(() => USER.id),
-    receiverId: int("receiver_id").notNull().references(() => USER.id),
-    status: mysqlEnum("status", ["pending", "accepted", "rejected", "blocked"]).default("pending"),
-    requestedAt: timestamp("requested_at").defaultNow(),
-    respondedAt: timestamp("responded_at"),
-  });
+
 
 export const CONVERSATIONS = mysqlTable('conversations', {
   id: int('id').autoincrement().primaryKey(),
@@ -771,3 +725,161 @@ export const GROUP_CHAT_MESSAGES = mysqlTable('group_chat_messages', {
   createdAt: timestamp('created_at').defaultNow(),
   isDeleted: boolean('is_deleted').default(false)
 });
+
+
+
+// New Ones
+
+
+export const USER = mysqlTable('user', {
+  id: int('id').notNull().primaryKey().autoincrement(),
+  username: varchar('username', { length: 255 }).notNull(),
+  birthDate: date('birthDate').notNull(),
+  gender: varchar('gender', { length: 150 }).default(null),
+  password: varchar('password', { length: 150 }).default(null),
+
+  // NEW PRICING FIELDS
+  currentPlan: mysqlEnum('current_plan', ['free', 'pro', 'elite']).default('free'),
+  isVerified: boolean('is_verified').default(false),
+  verificationDate: timestamp('verification_date').default(null),
+  profileBoostActive: boolean('profile_boost_active').default(false),
+  profileBoostEnds: timestamp('profile_boost_ends').default(null),
+  subscriptionStatus: mysqlEnum('subscription_status', ['active', 'expired', 'trial']).default('trial'),
+  subscriptionEnds: timestamp('subscription_ends').default(null),
+
+  // Existing fields
+  phone: varchar('phone', { length: 20 }).default(null),
+  isPhoneVerified: boolean('is_phone_verified').default(false),
+  email: varchar('email', { length: 255 }).default(null),
+  isEmailVerified: boolean('is_email_verified').default(false),
+  profileImageUrl: varchar('profile_image_url', { length: 500 }).default(null),
+  country: varchar('country', { length: 150 }).default(null),
+  state: varchar('state', { length: 150 }).default(null),
+  city: varchar('city', { length: 150 }).default(null),
+  religion: varchar('religion', { length: 150 }).default(null),
+  caste: varchar('caste', { length: 150 }).default(null),
+  height: decimal('height', { precision: 5, scale: 2 }).default(null),
+  weight: decimal('weight', { precision: 5, scale: 2 }).default(null),
+  income: varchar('income', { length: 100 }).default(null),
+  isProfileVerified: boolean('is_profile_verified').default(false),
+  isProfileComplete: boolean('is_profile_complete').default(false),
+});
+
+// Updated CONNECTIONS table with premium tracking
+export const CONNECTIONS = mysqlTable("connections", {
+  connectionId: int("connection_id").primaryKey().autoincrement(),
+  senderId: int("sender_id").notNull().references(() => USER.id),
+  receiverId: int("receiver_id").notNull().references(() => USER.id),
+  status: mysqlEnum("status", ["pending", "accepted", "rejected", "blocked"]).default("pending"),
+  
+  // NEW PREMIUM FIELDS
+  connectionType: mysqlEnum("connection_type", ["regular", "premium", "boosted"]).default("regular"),
+  isPremiumConnection: boolean("is_premium_connection").default(false),
+  
+  requestedAt: timestamp("requested_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+});
+
+// ============================================
+// NEW TABLES FOR PRICING SYSTEM
+// ============================================
+
+// Subscription Plans
+export const SUBSCRIPTION_PLANS = mysqlTable('subscription_plans', {
+  id: int('id').autoincrement().primaryKey(),
+  planName: varchar('plan_name', { length: 50 }).notNull(),
+  displayName: varchar('display_name', { length: 100 }).notNull(),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 10 }).default('INR'),
+  billingPeriod: mysqlEnum('billing_period', ['monthly', 'quarterly', 'annual']).notNull(),
+  features: json('features').notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow()
+}, (table) => ({
+  uniquePlanPeriod: unique('unique_plan_period').on(table.planName, table.billingPeriod)
+}));
+
+// User Subscriptions
+export const USER_SUBSCRIPTIONS = mysqlTable('user_subscriptions', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  planId: int('plan_id').notNull().references(() => SUBSCRIPTION_PLANS.id),
+  status: mysqlEnum('status', ['active', 'expired', 'cancelled', 'pending']).default('pending'),
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  autoRenew: boolean('auto_renew').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
+});
+
+// Subscription Payments
+export const SUBSCRIPTION_PAYMENTS = mysqlTable('subscription_payments', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  subscriptionId: int('subscription_id').notNull().references(() => USER_SUBSCRIPTIONS.id),
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 10 }).default('INR'),
+  paymentMethod: varchar('payment_method', { length: 50 }).notNull(),
+  paymentId: varchar('payment_id', { length: 255 }).notNull(),
+  status: mysqlEnum('status', ['pending', 'completed', 'failed', 'refunded']).default('pending'),
+  paidAt: timestamp('paid_at').default(null),
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+// Profile Boosts (₹99 weekly add-on)
+export const PROFILE_BOOSTS = mysqlTable('profile_boosts', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  boostType: mysqlEnum('boost_type', ['weekly', 'monthly']).default('weekly'),
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  paymentId: varchar('payment_id', { length: 255 }).notNull(),
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+// Daily Connection Usage (Free plan: 5/day limit)
+export const DAILY_CONNECTION_USAGE = mysqlTable('daily_connection_usage', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  date: date('date').notNull(),
+  connectionsUsed: int('connections_used').default(0),
+  maxConnections: int('max_connections').notNull(),
+  createdAt: timestamp('created_at').defaultNow()
+}, (table) => ({
+  userDateUnique: unique('user_date_unique').on(table.userId, table.date)
+}));
+
+// User Badges System (Verified, Elite, etc.)
+export const USER_BADGES = mysqlTable('user_badges', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  badgeType: mysqlEnum('badge_type', ['verified', 'top_tier', 'premium', 'elite']).notNull(),
+  badgeName: varchar('badge_name', { length: 100 }).notNull(),
+  badgeDescription: varchar('badge_description', { length: 255 }).default(null),
+  isActive: boolean('is_active').default(true),
+  awardedAt: timestamp('awarded_at').defaultNow(),
+  expiresAt: timestamp('expires_at').default(null)
+}, (table) => ({
+  userBadgeUnique: unique('user_badge_unique').on(table.userId, table.badgeType)
+}));
+
+// Feature Usage Tracking (AI chat, group chat limits, etc.)
+export const FEATURE_USAGE = mysqlTable('feature_usage', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  featureName: varchar('feature_name', { length: 100 }).notNull(),
+  usageCount: int('usage_count').default(0),
+  lastUsed: timestamp('last_used').defaultNow(),
+  resetDate: date('reset_date').notNull(),
+  maxUsage: int('max_usage').default(null), // NULL = unlimited
+  createdAt: timestamp('created_at').defaultNow()
+}, (table) => ({
+  userFeatureDate: unique('user_feature_date').on(table.userId, table.featureName, table.resetDate)
+}));
+
+// ============================================
+// INDEXES FOR PERFORMANCE
+// ============================================
+

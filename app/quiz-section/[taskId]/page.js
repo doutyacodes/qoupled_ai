@@ -1,9 +1,21 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import GlobalApi from "@/app/_services/GlobalApi";
 import toast, { Toaster } from "react-hot-toast";
-import { Heart, CheckCircle, ArrowRight, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { 
+  Heart, 
+  CheckCircle, 
+  ArrowRight, 
+  Clock, 
+  AlertCircle, 
+  Loader2,
+  ArrowLeft,
+  Brain,
+  Sparkles,
+  Target
+} from "lucide-react";
 
 const ModernQuizPage = ({ params }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -71,7 +83,7 @@ const ModernQuizPage = ({ params }) => {
       }, 1000);
 
       const timer = setTimeout(() => {
-        router.replace("/tests");
+        router.replace("/my-matches");
       }, 5000);
 
       return () => {
@@ -118,6 +130,13 @@ const ModernQuizPage = ({ params }) => {
     }
   };
 
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setSelectedChoice(null);
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
   const quizProgressSubmit = async (data) => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -156,12 +175,18 @@ const ModernQuizPage = ({ params }) => {
   // Loading state
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center">
-          <Loader2 className="h-12 w-12 text-rose-500 animate-spin mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800">Loading your quiz...</h2>
-          <p className="text-gray-500 mt-2">Please wait while we prepare your questions</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full"
+        >
+          <div className="w-16 h-16 bg-gradient-to-r from-rose-100 to-pink-100 rounded-full flex items-center justify-center mb-6">
+            <Loader2 className="h-8 w-8 text-rose-500 animate-spin" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2 text-center">Loading your quiz...</h2>
+          <p className="text-gray-500 text-center text-sm">Please wait while we prepare your questions</p>
+        </motion.div>
       </div>
     );
   }
@@ -170,35 +195,71 @@ const ModernQuizPage = ({ params }) => {
   if (quizCompleted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <div className="mb-6 flex justify-center">
-            <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="h-10 w-10 text-green-500" />
-            </div>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
-            Quiz Completed!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Thank you for completing the quiz. Your responses have been saved.
-          </p>
-          <div className="flex items-center justify-center text-gray-500 mb-4">
-            <Clock className="h-5 w-5 mr-2 text-gray-400" />
-            <p>Redirecting to dashboard in {secondsRemaining} seconds</p>
-          </div>
-          <button
-            onClick={() => router.push('/tests')}
-            className="w-full bg-gradient-to-r from-rose-500 to-red-600 text-white font-medium py-3 rounded-xl hover:shadow-md transition-all"
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.8, y: 50 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center"
+        >
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+            className="mb-6 flex justify-center"
           >
-            Return to Dashboard
-          </button>
-        </div>
+            <div className="h-20 w-20 bg-gradient-to-r from-green-100 to-emerald-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-12 w-12 text-green-500" />
+            </div>
+          </motion.div>
+          
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4"
+          >
+            🎉 Quiz Completed!
+          </motion.h2>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="text-gray-600 mb-6"
+          >
+            Fantastic! Your personality profile is ready. Let's find your perfect matches!
+          </motion.p>
+          
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9 }}
+            className="flex items-center justify-center text-gray-500 mb-6"
+          >
+            <Clock className="h-5 w-5 mr-2 text-gray-400" />
+            <p className="text-sm">Redirecting to matches in {secondsRemaining} seconds</p>
+          </motion.div>
+          
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.1 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => router.push('/my-matches')}
+            className="w-full bg-gradient-to-r from-rose-500 to-red-600 text-white font-semibold py-4 rounded-2xl hover:shadow-lg transition-all duration-200 flex items-center justify-center"
+          >
+            <Target className="mr-2 h-5 w-5" />
+            View My Matches
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </motion.button>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex flex-col items-center py-6 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500">
       <Toaster 
         position="top-center"
         toastOptions={{
@@ -206,98 +267,189 @@ const ModernQuizPage = ({ params }) => {
           style: {
             background: '#363636',
             color: '#fff',
-            borderRadius: '8px',
+            borderRadius: '12px',
           },
         }}
       />
       
-   
-      
-      {/* Quiz progress alert */}
-      {showAlert && (
-        <div className="w-full max-w-4xl mb-6">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start">
-            <AlertCircle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-medium text-amber-800">Quiz in Progress</h3>
-              <p className="text-sm text-amber-700 mt-1">
-                You're continuing from where you left off. Your previous answers have been saved.
-              </p>
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-rose-500/95 backdrop-blur-sm border-b border-rose-600/20">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mr-3">
+                <Brain className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white">Personality Quiz</h1>
+                <p className="text-white/80 text-sm">Discover your perfect match</p>
+              </div>
+            </div>
+            <div className="text-white text-sm font-medium">
+              {currentQuestionIndex + 1}/{questions.length}
             </div>
           </div>
         </div>
-      )}
-      
-      {/* Progress bar */}
-      <div className="w-full max-w-4xl mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-white font-medium">Question {currentQuestionIndex + 1}</span>
-          <span className="text-white font-medium">{currentQuestionIndex + 1} of {questions.length}</span>
-        </div>
-        <div className="overflow-hidden h-2 bg-white/30 rounded-full">
-          <div 
-            className="h-full bg-white rounded-full transition-all duration-300 ease-in-out"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
       </div>
-      
-      {/* Question card */}
-      {questions.length > 0 && (
-        <div className="w-full max-w-4xl">
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Quiz progress alert */}
+        <AnimatePresence>
+          {showAlert && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="mb-6"
+            >
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start">
+                <AlertCircle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-amber-800">Quiz in Progress</h3>
+                  <p className="text-sm text-amber-700 mt-1">
+                    You're continuing from where you left off. Your previous answers have been saved.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Progress bar */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-white font-semibold text-sm sm:text-base">
+              Question {currentQuestionIndex + 1}
+            </span>
+            <span className="text-white/80 text-sm">
+              {Math.round(progress)}% Complete
+            </span>
+          </div>
+          <div className="overflow-hidden h-3 bg-white/30 rounded-full">
+            <motion.div 
+              className="h-full bg-white rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+        </motion.div>
+        
+        {/* Question card */}
+        {questions.length > 0 && (
+          <motion.div 
+            key={currentQuestionIndex}
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.4 }}
+            className="bg-white rounded-3xl shadow-2xl overflow-hidden"
+          >
             {/* Question header */}
-            <div className="bg-gradient-to-r from-rose-500 to-red-600 p-6">
-              <h2 className="text-xl font-bold text-white">
-                {questions[currentQuestionIndex]?.question}
-              </h2>
+            <div className="bg-gradient-to-r from-rose-500 to-red-600 p-6 sm:p-8">
+              <div className="flex items-start">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mr-4 flex-shrink-0">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg sm:text-xl font-bold text-white leading-relaxed">
+                    {questions[currentQuestionIndex]?.question}
+                  </h2>
+                  <p className="text-white/80 text-sm mt-2">
+                    Choose the option that best describes you
+                  </p>
+                </div>
+              </div>
             </div>
             
             {/* Answer options */}
-            <div className="p-6">
+            <div className="p-6 sm:p-8">
               <div className="space-y-4">
-                {shuffledChoices.map((choice, index) => (
-                  <button
-                    key={index}
-                    className={`w-full text-left p-4 rounded-xl transition-all duration-200 border-2 flex items-center ${
-                      selectedChoice?.id === choice.id 
-                        ? 'border-rose-500 bg-rose-50 text-rose-700' 
-                        : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50/50'
-                    }`}
-                    onClick={() => handleChoiceSelect(choice)}
-                  >
-                    <div className="h-6 w-6 min-w-6 rounded-full mr-3 flex-shrink-0 border-2 flex items-center justify-center 
-                      ${selectedChoice?.id === choice.id ? 'border-rose-500 bg-rose-500' : 'border-gray-300'}">
-                      {selectedChoice?.id === choice.id && (
-                        <CheckCircle className="h-5 w-5 text-white" />
-                      )}
-                    </div>
-                    <span className="font-medium">{choice.text}</span>
-                  </button>
-                ))}
+                <AnimatePresence mode="wait">
+                  {shuffledChoices.map((choice, index) => (
+                    <motion.button
+                      key={`${currentQuestionIndex}-${choice.id}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      className={`w-full text-left p-4 sm:p-5 rounded-2xl transition-all duration-200 border-2 flex items-start group ${
+                        selectedChoice?.id === choice.id 
+                          ? 'border-rose-500 bg-gradient-to-r from-rose-50 to-pink-50 shadow-lg' 
+                          : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50/50 hover:shadow-md'
+                      }`}
+                      onClick={() => handleChoiceSelect(choice)}
+                    >
+                      <div className={`h-6 w-6 min-w-[24px] rounded-full mr-4 flex-shrink-0 border-2 flex items-center justify-center transition-all duration-200 ${
+                        selectedChoice?.id === choice.id 
+                          ? 'border-rose-500 bg-rose-500' 
+                          : 'border-gray-300 group-hover:border-rose-400'
+                      }`}>
+                        {selectedChoice?.id === choice.id && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 300 }}
+                          >
+                            <CheckCircle className="h-4 w-4 text-white" />
+                          </motion.div>
+                        )}
+                      </div>
+                      <span className={`font-medium text-sm sm:text-base leading-relaxed ${
+                        selectedChoice?.id === choice.id ? 'text-rose-700' : 'text-gray-800'
+                      }`}>
+                        {choice.text}
+                      </span>
+                    </motion.button>
+                  ))}
+                </AnimatePresence>
               </div>
             </div>
             
             {/* Action footer */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button
-                onClick={handleNext}
-                disabled={!selectedChoice}
-                className={`flex items-center px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                  selectedChoice 
-                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white hover:shadow-lg' 
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                <span>
-                  {currentQuestionIndex === questions.length - 1 ? "Complete" : "Next"}
-                </span>
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
+            <div className="px-6 sm:px-8 py-6 bg-gray-50 border-t border-gray-100">
+              <div className="flex justify-between items-center gap-4">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handlePrevious}
+                  disabled={currentQuestionIndex === 0}
+                  className={`flex items-center px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                    currentQuestionIndex === 0 
+                      ? 'text-gray-300 cursor-not-allowed' 
+                      : 'text-gray-600 hover:text-rose-600 hover:bg-rose-50'
+                  }`}
+                >
+                  <ArrowLeft className="mr-2 h-5 w-5" />
+                  <span className="hidden sm:inline">Previous</span>
+                </motion.button>
+                
+                <motion.button
+                  whileHover={{ scale: selectedChoice ? 1.02 : 1 }}
+                  whileTap={{ scale: selectedChoice ? 0.98 : 1 }}
+                  onClick={handleNext}
+                  disabled={!selectedChoice}
+                  className={`flex items-center px-6 sm:px-8 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                    selectedChoice 
+                      ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white hover:shadow-lg shadow-rose-200' 
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  <span>
+                    {currentQuestionIndex === questions.length - 1 ? "Complete Quiz" : "Next Question"}
+                  </span>
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </motion.button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };
