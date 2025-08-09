@@ -240,14 +240,7 @@ const ToggleFavoriteProfile = (userId, action = "add", token) => {
   );
 };
 
-// Get user's saved profiles
-const GetSavedProfiles = (token) => {
-  return axios.get("/api/favorite-profiles", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};
+
 
 const SendConnectionRequest = (receiverId, token) => {
   return axios.post(
@@ -346,10 +339,231 @@ const RespondToFriendSuggestion = (data, token) => {
   });
 };
 
-export default {
-  CreateUserWithPreferences, // New method for signup with preferences
-  GetPreferenceCategoriesForSignup, // New method to get categories for signup
 
+
+// Add these methods to your existing GlobalApi.js file
+
+// ============================================
+// PREFERENCES API METHODS
+// ============================================
+
+// Get all preference categories and user preferences
+const GetAllPreferences = (token) => {
+  return axios.get("/api/preferences/all", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Update user preferences
+const UpdateUserPreferences = (data, token) => {
+  return axios.post("/api/preferences/update", data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+
+
+// Create new preference category (admin)
+const CreatePreferenceCategory = (data, token) => {
+  return axios.post("/api/preferences/categories", data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Create new preference option (admin)
+const CreatePreferenceOption = (data, token) => {
+  return axios.post("/api/preferences/options", data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Update preference option (admin)
+const UpdatePreferenceOption = (data, token) => {
+  return axios.put("/api/preferences/options", data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Delete preference option (admin)
+const DeletePreferenceOption = (optionId, token) => {
+  return axios.delete(`/api/preferences/options?optionId=${optionId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// ============================================
+// USER PROFILE API METHODS
+// ============================================
+
+// Get user profile with subscription info
+const GetUserProfile = (token) => {
+  return axios.get("/api/user/profile", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Update user subscription plan
+const UpdateUserPlan = (planData, token) => {
+  return axios.post("/api/user/plan/update", planData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// ============================================
+// PLAN MANAGEMENT API METHODS
+// ============================================
+
+// Get available subscription plans
+const GetSubscriptionPlans = () => {
+  return axios.get("/api/plans/available");
+};
+
+// Initiate plan upgrade
+const InitiatePlanUpgrade = (planId, token) => {
+  return axios.post("/api/plans/upgrade", { planId }, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Verify payment and activate plan
+const VerifyPlanPayment = (paymentData, token) => {
+  return axios.post("/api/plans/verify-payment", paymentData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Cancel subscription
+const CancelSubscription = (token) => {
+  return axios.post("/api/plans/cancel", {}, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Get subscription history
+const GetSubscriptionHistory = (token) => {
+  return axios.get("/api/plans/history", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// ============================================
+// PROFILE BOOST API METHODS
+// ============================================
+
+// Purchase profile boost
+const PurchaseProfileBoost = (boostData, token) => {
+  return axios.post("/api/boosts/purchase", boostData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Get boost history
+const GetBoostHistory = (token) => {
+  return axios.get("/api/boosts/history", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// ============================================
+// ENHANCED MATCHING API METHODS
+// ============================================
+
+// Get matches based on preferences and plan
+const GetPersonalizedMatches = (filters, token) => {
+  const queryParams = new URLSearchParams(filters).toString();
+  return axios.get(`/api/matches/personalized?${queryParams}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Get compatibility score with specific user
+const GetDetailedCompatibility = (userId, token) => {
+  return axios.get(`/api/compatibility/detailed/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Save/unsave a profile
+const ToggleProfileSave = (userId, action, token) => {
+  return axios.post("/api/profiles/save", { userId, action }, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Get saved profiles
+const GetSavedProfiles = (token) => {
+  return axios.get("/api/profiles/saved", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// ============================================
+// ANALYTICS API METHODS
+// ============================================
+
+// Get user matching analytics
+const GetMatchingAnalytics = (token) => {
+  return axios.get("/api/analytics/matching", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// Get profile performance stats
+const GetProfileStats = (token) => {
+  return axios.get("/api/analytics/profile-stats", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+// ============================================
+// UPDATED EXPORT WITH NEW METHODS
+// ============================================
+
+
+export default {
+    // Existing methods
+  CreateUserWithPreferences,
+  GetPreferenceCategoriesForSignup,
   CreateNewUser,
   GetUserData,
   GetQuizData,
@@ -378,8 +592,6 @@ export default {
   ToggleFavoriteProfile,
   GetSavedProfiles,
   SendConnectionRequest,
-
-  // new preference section
   GetPreferenceCategories,
   GetUserPreferences,
   SaveUserPreference,
@@ -387,8 +599,38 @@ export default {
   SaveUserMatchingPreference,
   SaveUserMultiPreference,
   DeleteUserMultiPreference,
-
-  // Friend suggestion functions
   GetFriendSuggestion,
   RespondToFriendSuggestion,
+
+  // New Preferences Methods
+  GetAllPreferences,
+  UpdateUserPreferences,
+  CreatePreferenceCategory,
+  CreatePreferenceOption,
+  UpdatePreferenceOption,
+  DeletePreferenceOption,
+
+  // User Profile Methods
+  GetUserProfile,
+  UpdateUserPlan,
+
+  // Plan Management Methods
+  GetSubscriptionPlans,
+  InitiatePlanUpgrade,
+  VerifyPlanPayment,
+  CancelSubscription,
+  GetSubscriptionHistory,
+
+  // Profile Boost Methods
+  PurchaseProfileBoost,
+  GetBoostHistory,
+
+  // Enhanced Matching Methods
+  GetPersonalizedMatches,
+  GetDetailedCompatibility,
+  ToggleProfileSave,
+
+  // Analytics Methods
+  GetMatchingAnalytics,
+  GetProfileStats
 };

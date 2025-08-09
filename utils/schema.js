@@ -293,32 +293,7 @@ export const USER_CHAT_SETTINGS = mysqlTable('user_chat_settings', {
   updated_at: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
-// Define preference categories
-export const PREFERENCE_CATEGORIES = mysqlTable('preference_categories', {
-  id: int('id').primaryKey().autoincrement(),
-  name: varchar('name', { length: 100 }).notNull().unique(),
-  display_name: varchar('display_name', { length: 150 }).notNull(),
-  description: varchar('description', { length: 255 }).default(null),
-  is_active: boolean('is_active').default(true),
-  created_at: timestamp('created_at').defaultNow(),
-  updated_at: timestamp('updated_at').defaultNow().onUpdateNow(),
-});
 
-// Define preference options
-export const PREFERENCE_OPTIONS = mysqlTable('preference_options', {
-  id: int('id').primaryKey().autoincrement(),
-  category_id: int('category_id').notNull().references(() => PREFERENCE_CATEGORIES.id, { onDelete: 'cascade' }),
-  value: varchar('value', { length: 100 }).notNull(),
-  display_value: varchar('display_value', { length: 150 }).notNull(),
-  icon: varchar('icon', { length: 100 }).default(null),
-  is_active: boolean('is_active').default(true),
-  created_at: timestamp('created_at').defaultNow(),
-  updated_at: timestamp('updated_at').defaultNow().onUpdateNow(),
-}, (table) => {
-  return {
-    categoryValueUnique: unique('category_value_unique').on(table.category_id, table.value)
-  };
-});
 
 // User's own preferences (about themselves)
 export const USER_PREFERENCES = mysqlTable('user_preferences', {
@@ -883,3 +858,128 @@ export const FEATURE_USAGE = mysqlTable('feature_usage', {
 // INDEXES FOR PERFORMANCE
 // ============================================
 
+// Enhanced PREFERENCE_CATEGORIES table
+export const PREFERENCE_CATEGORIES = mysqlTable('preference_categories', {
+  id: int('id').primaryKey().autoincrement(),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  displayName: varchar('display_name', { length: 150 }).notNull(),
+  description: varchar('description', { length: 255 }).default(null),
+  isActive: boolean('is_active').default(true),
+  allowsAny: boolean('allows_any').default(false),
+  allowsMultiple: boolean('allows_multiple').default(false),
+  categoryType: mysqlEnum('category_type', ['single', 'multiple', 'range']).default('single'),
+  displayOrder: int('display_order').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+// Enhanced PREFERENCE_OPTIONS table
+export const PREFERENCE_OPTIONS = mysqlTable('preference_options', {
+  id: int('id').primaryKey().autoincrement(),
+  categoryId: int('category_id').notNull().references(() => PREFERENCE_CATEGORIES.id, { onDelete: 'cascade' }),
+  value: varchar('value', { length: 100 }).notNull(),
+  displayValue: varchar('display_value', { length: 150 }).notNull(),
+  icon: varchar('icon', { length: 100 }).default(null),
+  isActive: boolean('is_active').default(true),
+  isAnyOption: boolean('is_any_option').default(false),
+  includesOthers: boolean('includes_others').default(false),
+  displayOrder: int('display_order').default(0),
+  optionColor: varchar('option_color', { length: 50 }).default(null),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+}, (table) => ({
+  categoryValueUnique: unique('category_value_unique').on(table.categoryId, table.value)
+}));
+
+// New flexible USER_PREFERENCE_VALUES table
+export const USER_PREFERENCE_VALUES = mysqlTable('user_preference_values', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  categoryId: int('category_id').notNull().references(() => PREFERENCE_CATEGORIES.id, { onDelete: 'cascade' }),
+  optionId: int('option_id').default(null).references(() => PREFERENCE_OPTIONS.id, { onDelete: 'cascade' }),
+  customValue: varchar('custom_value', { length: 255 }).default(null),
+  rangeMin: int('range_min').default(null),
+  rangeMax: int('range_max').default(null),
+  isAnySelected: boolean('is_any_selected').default(false),
+  importance: mysqlEnum('importance', ['must_have', 'important', 'nice_to_have', 'not_important']).default('nice_to_have'),
+  isDealBreaker: boolean('is_deal_breaker').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+}, (table) => ({
+  userCategoryIndex: index('idx_user_category').on(table.userId, table.categoryId),
+  userAnyIndex: index('idx_user_any').on(table.userId, table.isAnySelected),
+  dealBreakerIndex: index('idx_deal_breaker').on(table.userId, table.isDealBreaker)
+}));
+
+// ============================================
+// SUBSCRIPTION & PLAN TABLES (Already in previous schema)
+// ============================================
+
+// User saved profiles table
+export const USER_SAVED_PROFILES = mysqlTable('user_saved_profiles', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  savedUserId: int('saved_user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  savedAt: timestamp('saved_at').defaultNow(),
+  notes: text('notes').default(null),
+}, (table) => ({
+  userSavedUnique: unique('user_saved_unique').on(table.userId, table.savedUserId)
+}));
+
+// User matching analytics table
+export const USER_MATCHING_ANALYTICS = mysqlTable('user_matching_analytics', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  totalMatches: int('total_matches').default(0),
+  totalViews: int('total_views').default(0),
+  totalLikes: int('total_likes').default(0),
+  totalConnections: int('total_connections').default(0),
+  profileScore: decimal('profile_score', { precision: 5, scale: 2 }).default('0.00'),
+  lastUpdated: timestamp('last_updated').defaultNow().onUpdateNow(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  userAnalyticsUnique: unique('user_analytics_unique').on(table.userId)
+}));
+
+// Daily user activity tracking
+export const USER_DAILY_ACTIVITY = mysqlTable('user_daily_activity', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  activityDate: date('activity_date').notNull(),
+  profileViews: int('profile_views').default(0),
+  matchesViewed: int('matches_viewed').default(0),
+  connectionsRequested: int('connections_requested').default(0),
+  messagesExchanged: int('messages_exchanged').default(0),
+  timeSpentMinutes: int('time_spent_minutes').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  userDateUnique: unique('user_date_unique').on(table.userId, table.activityDate)
+}));
+
+// User plan upgrade history
+export const USER_PLAN_HISTORY = mysqlTable('user_plan_history', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  previousPlan: mysqlEnum('previous_plan', ['free', 'pro', 'elite']).notNull(),
+  newPlan: mysqlEnum('new_plan', ['free', 'pro', 'elite']).notNull(),
+  changeReason: varchar('change_reason', { length: 100 }).default(null),
+  effectiveDate: timestamp('effective_date').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Advanced matching preferences
+export const USER_ADVANCED_PREFERENCES = mysqlTable('user_advanced_preferences', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }).unique(),
+  maxDistance: int('max_distance').default(50), // km
+  ageRangeMin: int('age_range_min').default(18),
+  ageRangeMax: int('age_range_max').default(35),
+  showOnlyVerified: boolean('show_only_verified').default(false),
+  hideUsersWithRedFlags: boolean('hide_users_with_red_flags').default(false),
+  prioritizeActiveUsers: boolean('prioritize_active_users').default(true),
+  matchingAlgorithm: mysqlEnum('matching_algorithm', ['personality', 'compatibility', 'hybrid']).default('hybrid'),
+  notificationPreferences: json('notification_preferences').default(null),
+  privacySettings: json('privacy_settings').default(null),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
