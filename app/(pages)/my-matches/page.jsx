@@ -358,7 +358,7 @@ export default function ModernMyMatches() {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => router.push('/pricing')}
+                      onClick={() => router.push('/plan-switcher')}
                       className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-xl font-semibold flex items-center shadow-lg"
                     >
                       <Crown className="h-5 w-5 mr-2" />
