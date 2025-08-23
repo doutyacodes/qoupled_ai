@@ -237,16 +237,17 @@ export async function POST(req) {
           };
         }
 
-        // For upgrades, require payment
-        // In a real app, you'd integrate with Razorpay/Stripe here
-        const paymentUrl = `/payment/process?subscriptionId=${subscriptionId}&amount=${selectedPlan.price}`;
+        // For upgrades, require payment via Razorpay
+        const paymentUrl = `/payment/process?planId=${selectedPlan.id}&billingCycle=${billingCycle}`;
 
         return {
           planSwitched: false,
           paymentRequired: true,
           paymentUrl: paymentUrl,
-          subscriptionId: subscriptionId,
+          planId: selectedPlan.id,
+          planName: selectedPlan.planName,
           amount: selectedPlan.price,
+          billingCycle: billingCycle,
           message: "Payment required to complete upgrade",
         };
       });

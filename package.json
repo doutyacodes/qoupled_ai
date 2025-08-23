@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-  "dev": "next dev",
-  "dev:socket": "node server.js",
-  "build": "next build",
-  "start": "next start",
-  "start:socket": "NODE_ENV=production node server.js",
-  "lint": "next lint",
-  "db:push": "npx drizzle-kit push",
-  "db:studio": "npx drizzle-kit studio"
-},
+    "dev": "next dev",
+    "dev:socket": "node server.js",
+    "build": "next build",
+    "start": "next start",
+    "start:socket": "NODE_ENV=production node server.js",
+    "lint": "next lint",
+    "db:push": "npx drizzle-kit push",
+    "db:studio": "npx drizzle-kit studio"
+  },
   "dependencies": {
     "@headlessui/react": "^2.1.8",
     "@heroicons/react": "^2.1.5",
@@ -29,6 +29,7 @@
     "lucide-react": "^0.441.0",
     "mysql2": "^3.11.3",
     "next": "14.2.12",
+    "razorpay": "^2.9.6",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.53.0",

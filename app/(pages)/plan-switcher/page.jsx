@@ -120,15 +120,25 @@ const PlanSwitcherPage = () => {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(
-          `Successfully switched to ${selectedPlan.planName} plan!`
-        );
-        setCurrentPlan(selectedPlan);
-        setShowConfirmation(false);
-
-        // Redirect to payment if required
-        if (data.paymentRequired && data.paymentUrl) {
-          window.location.href = data.paymentUrl;
+        // Only show success message if no payment is required
+        if (data.paymentRequired) {
+          // Payment required - redirect to payment page
+          setShowConfirmation(false);
+          if (data.paymentUrl) {
+            router.push(data.paymentUrl);
+          } else {
+            toast.error("Payment URL not provided");
+          }
+        } else {
+          // Plan switched successfully without payment
+          toast.success(
+            `Successfully switched to ${selectedPlan.displayName} plan!`
+          );
+          setCurrentPlan(selectedPlan);
+          setShowConfirmation(false);
+          
+          // Refresh the page data
+          window.location.reload();
         }
       } else {
         toast.error(data.message || "Failed to switch plan");
@@ -359,7 +369,7 @@ const PlanSwitcherPage = () => {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8"
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-8 px-2 sm:px-0"
         >
           {plans
             .filter((plan) => plan.billingPeriod === billingCycle)
@@ -380,13 +390,13 @@ const PlanSwitcherPage = () => {
                     selectedPlan?.id === plan.id
                       ? "ring-4 ring-yellow-400/50"
                       : ""
-                  }`}
+                  } ${plan.planName === "pro" ? "mt-8 sm:mt-0" : ""}`}
                 >
                   {/* Popular Badge */}
                   {plan.planName === "pro" && (
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
-                      <span className="bg-gradient-to-r from-rose-500 to-red-600 text-white px-4 py-1 rounded-full text-sm font-medium shadow-lg">
-                        <Star className="inline h-4 w-4 mr-1" />
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
+                      <span className="bg-gradient-to-r from-rose-500 to-red-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium shadow-lg whitespace-nowrap flex items-center">
+                        <Star className="inline h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                         Most Popular
                       </span>
                     </div>
@@ -402,31 +412,31 @@ const PlanSwitcherPage = () => {
                     </div>
                   )}
 
-                  <div className="p-8">
+                  <div className="p-4 sm:p-6 lg:p-8">
                     {/* Plan Header */}
                     <div className="text-center mb-6">
                       <div
-                        className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-r ${getPlanColor(
+                        className={`inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-r ${getPlanColor(
                           plan.planName
                         )} text-white mb-4`}
                       >
                         {getPlanIcon(plan.planName)}
                       </div>
-                      <h3 className="text-2xl font-bold text-white mb-2">
+                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">
                         {plan.displayName}
                       </h3>
 
                       <div className="mb-4">
-                        <span className="text-4xl font-bold text-white">
+                        <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
                           ₹{plan.price}
                         </span>
-                        <span className="text-white/70">
+                        <span className="text-white/70 text-sm sm:text-base">
                           /{billingCycle === "quarterly" ? "3 months" : "year"}
                         </span>
                       </div>
 
                       {billingCycle === "annual" && (
-                        <div className="text-green-300 text-sm font-medium">
+                        <div className="text-green-300 text-xs sm:text-sm font-medium">
                           Save ₹{plan.planName === "pro" ? "800" : "1200"}{" "}
                           annually
                         </div>
@@ -466,22 +476,23 @@ const PlanSwitcherPage = () => {
                         }
                       }}
                       disabled={isCurrent}
-                      className={`w-full py-4 rounded-2xl font-semibold transition-all duration-200 ${getActionColor(
+                      className={`w-full py-3 sm:py-4 rounded-2xl font-semibold transition-all duration-200 text-sm sm:text-base ${getActionColor(
                         plan
                       )}`}
                     >
                       {isCurrent ? (
                         <div className="flex items-center justify-center">
-                          <Check className="h-5 w-5 mr-2" />
-                          Current Plan
+                          <Check className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                          <span className="hidden sm:inline">Current Plan</span>
+                          <span className="sm:hidden">Current</span>
                         </div>
                       ) : (
                         <div className="flex items-center justify-center">
                           {isUpgrade(plan) && (
-                            <TrendingUp className="h-5 w-5 mr-2" />
+                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                           )}
                           {getActionText(plan)}
-                          <ArrowRight className="h-5 w-5 ml-2" />
+                          <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
                         </div>
                       )}
                     </motion.button>
@@ -496,57 +507,59 @@ const PlanSwitcherPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
-          className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-xl border border-white/20"
+          className="bg-white/10 backdrop-blur-lg rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl border border-white/20"
         >
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-6 text-center">
             Feature Comparison
           </h2>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/20">
-                  <th className="text-left text-white font-semibold py-4">
-                    Feature
-                  </th>
-                  <th className="text-center text-white font-semibold py-4">
-                    Free
-                  </th>
-                  <th className="text-center text-white font-semibold py-4">
-                    Pro
-                  </th>
-                  <th className="text-center text-white font-semibold py-4">
-                    Elite
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-white/10">
-                  <td className="text-white/90 py-4">Daily Connections</td>
-                  <td className="text-center text-white/70 py-4">5</td>
-                  <td className="text-center text-white/70 py-4">Unlimited</td>
-                  <td className="text-center text-white/70 py-4">Unlimited</td>
-                </tr>
-                <tr className="border-b border-white/10">
-                  <td className="text-white/90 py-4">AI Chat Assistant</td>
-                  <td className="text-center text-red-400 py-4">✗</td>
-                  <td className="text-center text-green-400 py-4">✓</td>
-                  <td className="text-center text-green-400 py-4">✓</td>
-                </tr>
-                <tr className="border-b border-white/10">
-                  <td className="text-white/90 py-4">Profile Verification</td>
-                  <td className="text-center text-red-400 py-4">✗</td>
-                  <td className="text-center text-red-400 py-4">✗</td>
-                  <td className="text-center text-green-400 py-4">✓</td>
-                </tr>
-                <tr className="border-b border-white/10">
-                  <td className="text-white/90 py-4">Weekly Profile Boosts</td>
-                  <td className="text-center text-white/70 py-4">0</td>
-                  <td className="text-center text-white/70 py-4">0</td>
-                  <td className="text-center text-white/70 py-4">50</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="min-w-full inline-block align-middle">
+              <table className="w-full min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-white/20">
+                    <th className="text-left text-white font-semibold py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">
+                      Feature
+                    </th>
+                    <th className="text-center text-white font-semibold py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">
+                      Free
+                    </th>
+                    <th className="text-center text-white font-semibold py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">
+                      Pro
+                    </th>
+                    <th className="text-center text-white font-semibold py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">
+                      Elite
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-white/10">
+                    <td className="text-white/90 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">Daily Connections</td>
+                    <td className="text-center text-white/70 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">5</td>
+                    <td className="text-center text-white/70 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">Unlimited</td>
+                    <td className="text-center text-white/70 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">Unlimited</td>
+                  </tr>
+                  <tr className="border-b border-white/10">
+                    <td className="text-white/90 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">AI Chat Assistant</td>
+                    <td className="text-center text-red-400 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">✗</td>
+                    <td className="text-center text-green-400 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">✓</td>
+                    <td className="text-center text-green-400 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">✓</td>
+                  </tr>
+                  <tr className="border-b border-white/10">
+                    <td className="text-white/90 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">Profile Verification</td>
+                    <td className="text-center text-red-400 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">✗</td>
+                    <td className="text-center text-red-400 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">✗</td>
+                    <td className="text-center text-green-400 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">✓</td>
+                  </tr>
+                  <tr className="border-b border-white/10">
+                    <td className="text-white/90 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">Weekly Profile Boosts</td>
+                    <td className="text-center text-white/70 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">0</td>
+                    <td className="text-center text-white/70 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">0</td>
+                    <td className="text-center text-white/70 py-3 sm:py-4 px-2 sm:px-4 text-sm sm:text-base">50</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </motion.div>
       </div>
