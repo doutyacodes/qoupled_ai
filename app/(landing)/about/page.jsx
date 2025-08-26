@@ -7,23 +7,17 @@ import {
   Users,
   Brain,
   Shield,
-  Star,
   ArrowRight,
-  CheckCircle,
   Sparkles,
   Target,
   Award,
   TrendingUp,
   Globe,
   Lightbulb,
-  Menu,
-  X,
 } from "lucide-react";
-import { useState } from "react";
 
 export default function AboutPage() {
   const router = useRouter();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const fadeIn = {
     initial: { opacity: 0, y: 30 },
@@ -45,86 +39,7 @@ export default function AboutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/95 backdrop-blur-md z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            {/* Logo */}
-            <motion.div 
-              className="flex items-center"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Image
-                src="/qoupledorange.png"
-                alt="Qoupled"
-                width={120}
-                height={40}
-                className="object-contain"
-              />
-            </motion.div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="/" className="text-gray-600 hover:text-rose-500 transition-colors font-medium">
-                Home
-              </a>
-              <a href="#our-story" className="text-gray-600 hover:text-rose-500 transition-colors font-medium">
-                Our Story
-              </a>
-              <a href="#team" className="text-gray-600 hover:text-rose-500 transition-colors font-medium">
-                Team
-              </a>
-              <motion.button
-                onClick={() => router.push("/login")}
-                className="bg-gradient-to-r from-rose-500 to-red-600 text-white px-6 py-2 rounded-full font-medium"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Get Started
-              </motion.button>
-            </div>
-
-            {/* Mobile menu button */}
-            <button
-              className="md:hidden p-2 text-gray-600"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
-
-          {/* Mobile Navigation */}
-          {isMobileMenuOpen && (
-            <motion.div
-              className="md:hidden py-4 border-t border-gray-100"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <div className="flex flex-col space-y-4">
-                <a href="/" className="text-gray-600 hover:text-rose-500 transition-colors font-medium">
-                  Home
-                </a>
-                <a href="#our-story" className="text-gray-600 hover:text-rose-500 transition-colors font-medium">
-                  Our Story
-                </a>
-                <a href="#team" className="text-gray-600 hover:text-rose-500 transition-colors font-medium">
-                  Team
-                </a>
-                <button
-                  onClick={() => router.push("/login")}
-                  className="bg-gradient-to-r from-rose-500 to-red-600 text-white px-6 py-2 rounded-full font-medium text-center"
-                >
-                  Get Started
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </nav>
+    <div className="bg-white">
 
       {/* Hero Section */}
       <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-rose-50 via-white to-red-50">
@@ -478,64 +393,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8">
-            {/* Brand */}
-            <div className="col-span-1">
-              <div className="flex items-center mb-4">
-                <Image
-                  src="/Full_transparent_logo.png"
-                  alt="Qoupled"
-                  width={100}
-                  height={35}
-                  className="object-contain"
-                />
-              </div>
-              <p className="text-gray-400 mb-4">
-                Connecting hearts through personality-based matching and AI-powered insights.
-              </p>
-            </div>
-
-            {/* Links */}
-            <div>
-              <h4 className="font-semibold mb-4">Product</h4>
-              <div className="space-y-2 text-gray-400">
-                <div>Features</div>
-                <div>How It Works</div>
-                <div>Pricing</div>
-                <div>Success Stories</div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <div className="space-y-2 text-gray-400">
-                <div>About Us</div>
-                <div>Careers</div>
-                <div>Press</div>
-                <div>Contact</div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Support</h4>
-              <div className="space-y-2 text-gray-400">
-                <div>Help Center</div>
-                <div>Safety Tips</div>
-                <div>Community Guidelines</div>
-                <div>Privacy Policy</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 Qoupled. All rights reserved. Made with ❤️ for meaningful connections.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
-
