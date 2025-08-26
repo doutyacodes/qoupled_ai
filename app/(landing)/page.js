@@ -62,7 +62,7 @@ export default function LandingPage() {
               </motion.div>
 
               <motion.h1
-                className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight mb-6"
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight mb-6"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
@@ -74,7 +74,7 @@ export default function LandingPage() {
               </motion.h1>
 
               <motion.p
-                className="text-xl text-gray-600 mb-8 leading-relaxed"
+                className="text-lg sm:text-xl text-gray-600 mb-8 leading-relaxed"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
@@ -91,16 +91,16 @@ export default function LandingPage() {
               >
                 <motion.button
                   onClick={() => router.push("/login")}
-                  className="bg-gradient-to-r from-rose-500 to-red-600 text-white px-8 py-4 rounded-full font-semibold text-lg flex items-center justify-center group"
+                  className="bg-gradient-to-r from-rose-500 to-red-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-base sm:text-lg flex items-center justify-center group"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   Start Your Journey
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="ml-2 h-4 sm:h-5 w-4 sm:w-5 group-hover:translate-x-1 transition-transform" />
                 </motion.button>
                 
                 <motion.button
-                  className="border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-full font-semibold text-lg hover:border-rose-500 hover:text-rose-500 transition-colors"
+                  className="border-2 border-gray-300 text-gray-700 px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-base sm:text-lg hover:border-rose-500 hover:text-rose-500 transition-colors"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -110,34 +110,34 @@ export default function LandingPage() {
 
               {/* Stats */}
               <motion.div
-                className="grid grid-cols-3 gap-8 mt-12 pt-8 border-t border-gray-200"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 mt-12 pt-8 border-t border-gray-200"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
               >
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-gray-900">50K+</div>
-                  <div className="text-gray-600 text-sm">Active Users</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900">50K+</div>
+                  <div className="text-gray-600 text-xs sm:text-sm">Active Users</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-gray-900">95%</div>
-                  <div className="text-gray-600 text-sm">Match Accuracy</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900">95%</div>
+                  <div className="text-gray-600 text-xs sm:text-sm">Match Accuracy</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-gray-900">10K+</div>
-                  <div className="text-gray-600 text-sm">Success Stories</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900">10K+</div>
+                  <div className="text-gray-600 text-xs sm:text-sm">Success Stories</div>
                 </div>
               </motion.div>
             </motion.div>
 
             {/* Hero Image */}
             <motion.div
-              className="relative"
+              className="relative mt-8 lg:mt-0"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              <div className="relative h-96 lg:h-[500px] rounded-3xl overflow-hidden shadow-2xl">
+              <div className="relative h-64 sm:h-80 md:h-96 lg:h-[500px] rounded-3xl overflow-hidden shadow-2xl">
                 <Image
                   src="https://images.pexels.com/photos/1024960/pexels-photo-1024960.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
                   alt="Happy couple using dating app"
@@ -149,24 +149,24 @@ export default function LandingPage() {
 
               {/* Floating Cards */}
               <motion.div
-                className="absolute -top-4 -left-4 bg-white p-4 rounded-2xl shadow-lg"
+                className="absolute -top-2 -left-2 sm:-top-4 sm:-left-4 bg-white p-2 sm:p-4 rounded-2xl shadow-lg"
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               >
                 <div className="flex items-center space-x-2">
-                  <Heart className="h-5 w-5 text-rose-500 fill-current" />
-                  <span className="text-sm font-semibold">98% Match</span>
+                  <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-rose-500 fill-current" />
+                  <span className="text-xs sm:text-sm font-semibold">98% Match</span>
                 </div>
               </motion.div>
 
               <motion.div
-                className="absolute -bottom-4 -right-4 bg-white p-4 rounded-2xl shadow-lg"
+                className="absolute -bottom-2 -right-2 sm:-bottom-4 sm:-right-4 bg-white p-2 sm:p-4 rounded-2xl shadow-lg"
                 animate={{ y: [0, 10, 0] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
               >
                 <div className="flex items-center space-x-2">
-                  <MessageCircle className="h-5 w-5 text-blue-500" />
-                  <span className="text-sm font-semibold">AI Chat Active</span>
+                  <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                  <span className="text-xs sm:text-sm font-semibold">AI Chat Active</span>
                 </div>
               </motion.div>
             </motion.div>
@@ -193,7 +193,7 @@ export default function LandingPage() {
           </motion.div>
 
           <motion.div
-            className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
             variants={staggerContainer}
             initial="initial"
             whileInView="animate"
@@ -266,7 +266,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
             {[
               {
                 step: "01",
@@ -335,7 +335,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {[
               {
                 name: "Free",
