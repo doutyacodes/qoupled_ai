@@ -144,6 +144,12 @@ const ModernNavbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
             <button
+              onClick={() => router.push("/about")}
+              className="text-white hover:text-rose-100 transition-colors"
+            >
+              About
+            </button>
+            <button
               onClick={() => router.push("/tests")}
               className="text-white hover:text-rose-100 transition-colors"
             >
@@ -319,6 +325,12 @@ const ModernNavbar = () => {
                 </div>
               )}
 
+              <a
+                href="/about"
+                className="block px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-rose-500 transition-colors"
+              >
+                About
+              </a>
               <a
                 href="/tests"
                 className="block px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-rose-500 transition-colors"
