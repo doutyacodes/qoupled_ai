@@ -1,6 +1,7 @@
 import CryptoJS from 'crypto-js';
 
-const secretKey = 'C7d8h2uu@1'; 
+// Use environment variable for encryption key
+const secretKey = process.env.ENCRYPTION_SECRET_KEY || 'C7d8h2uu@1';
 
 export const encryptText = (text) => {
   return CryptoJS.AES.encrypt(text, secretKey).toString();

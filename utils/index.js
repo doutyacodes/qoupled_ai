@@ -1,19 +1,13 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 
-// const connection = await mysql.createConnection({
-//   host: "localhost",
-//   user: "root",
-//   database: "devuser_qoupled",
-//   password:'',
-//   port:'3306'
-// });
-
+// Use environment variables for database connection
 const connection = await mysql.createConnection({
-  host: "68.178.163.247",
-  user: "devuser_qoupled_upgrade",
-  database: "devuser_qoupled_upgrade",
-  password:'Wowfy#user',
-  port:'3306'
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  database: process.env.DB_NAME || "devuser_qoupled_upgrade",
+  password: process.env.DB_PASSWORD || '',
+  port: process.env.DB_PORT || '3306'
 });
+
 export const db = drizzle(connection);

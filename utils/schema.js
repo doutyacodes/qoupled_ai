@@ -761,7 +761,7 @@ export const CONNECTIONS = mysqlTable("connections", {
 
 // Subscription Plans
 export const SUBSCRIPTION_PLANS = mysqlTable('subscription_plans', {
-  id: int('id').autoincrement().primaryKey(),
+  id: int('id').notNull().autoincrement().primaryKey(),
   planName: varchar('plan_name', { length: 50 }).notNull(),
   displayName: varchar('display_name', { length: 100 }).notNull(),
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
@@ -769,14 +769,20 @@ export const SUBSCRIPTION_PLANS = mysqlTable('subscription_plans', {
   billingPeriod: mysqlEnum('billing_period', ['monthly', 'quarterly', 'annual']).notNull(),
   features: json('features').notNull(),
   isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').defaultNow()
+  createdAt: timestamp('created_at').defaultNow(),
+  featuresJson: json('features_json').default(null),
+  maxConnectionsPerDay: int('max_connections_per_day').default(-1),
+  aiChatEnabled: boolean('ai_chat_enabled').default(false),
+  profileVerification: boolean('profile_verification').default(false),
+  prioritySupport: boolean('priority_support').default(false),
+  weeklyBoosts: int('weekly_boosts').default(0)
 }, (table) => ({
   uniquePlanPeriod: unique('unique_plan_period').on(table.planName, table.billingPeriod)
 }));
 
 // User Subscriptions
 export const USER_SUBSCRIPTIONS = mysqlTable('user_subscriptions', {
-  id: int('id').autoincrement().primaryKey(),
+  id: int('id').notNull().autoincrement().primaryKey(),
   userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
   planId: int('plan_id').notNull().references(() => SUBSCRIPTION_PLANS.id),
   status: mysqlEnum('status', ['active', 'expired', 'cancelled', 'pending']).default('pending'),
@@ -784,12 +790,17 @@ export const USER_SUBSCRIPTIONS = mysqlTable('user_subscriptions', {
   endDate: timestamp('end_date').notNull(),
   autoRenew: boolean('auto_renew').default(true),
   createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+  billingCycle: mysqlEnum('billing_cycle', ['monthly', 'quarterly', 'annual']).default('quarterly'),
+  nextBillingDate: timestamp('next_billing_date').default(null),
+  paymentMethod: varchar('payment_method', { length: 50 }).default('razorpay'),
+  cancelledAt: timestamp('cancelled_at').default(null),
+  cancelReason: text('cancel_reason').default(null)
 });
 
 // Subscription Payments
 export const SUBSCRIPTION_PAYMENTS = mysqlTable('subscription_payments', {
-  id: int('id').autoincrement().primaryKey(),
+  id: int('id').notNull().autoincrement().primaryKey(),
   userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
   subscriptionId: int('subscription_id').notNull().references(() => USER_SUBSCRIPTIONS.id),
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
@@ -798,7 +809,11 @@ export const SUBSCRIPTION_PAYMENTS = mysqlTable('subscription_payments', {
   paymentId: varchar('payment_id', { length: 255 }).notNull(),
   status: mysqlEnum('status', ['pending', 'completed', 'failed', 'refunded']).default('pending'),
   paidAt: timestamp('paid_at').default(null),
-  createdAt: timestamp('created_at').defaultNow()
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+  razorpayPaymentId: varchar('razorpay_payment_id', { length: 255 }).default(null),
+  razorpayOrderId: varchar('razorpay_order_id', { length: 255 }).default(null),
+  failureReason: text('failure_reason').default(null)
 });
 
 // Profile Boosts (₹99 weekly add-on)
@@ -969,7 +984,7 @@ export const USER_PLAN_HISTORY = mysqlTable('user_plan_history', {
 
 // Advanced matching preferences
 export const USER_ADVANCED_PREFERENCES = mysqlTable('user_advanced_preferences', {
-  id: int('id').primaryKey().autoincrement(),
+  id: int('id').notNull().primaryKey().autoincrement(),
   userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }).unique(),
   maxDistance: int('max_distance').default(50), // km
   ageRangeMin: int('age_range_min').default(18),
@@ -982,4 +997,70 @@ export const USER_ADVANCED_PREFERENCES = mysqlTable('user_advanced_preferences',
   privacySettings: json('privacy_settings').default(null),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+// ============================================
+// RAZORPAY & PAYMENT WEBHOOK TABLES
+// ============================================
+
+// Payment Webhooks
+export const PAYMENT_WEBHOOKS = mysqlTable('payment_webhooks', {
+  id: int('id').notNull().autoincrement().primaryKey(),
+  eventType: varchar('event_type', { length: 100 }).notNull(),
+  razorpayPaymentId: varchar('razorpay_payment_id', { length: 255 }).default(null),
+  razorpayOrderId: varchar('razorpay_order_id', { length: 255 }).default(null),
+  razorpaySignature: text('razorpay_signature').default(null),
+  webhookPayload: json('webhook_payload').notNull(),
+  status: mysqlEnum('status', ['received', 'processed', 'failed']).default('received'),
+  processedAt: timestamp('processed_at').default(null),
+  errorMessage: text('error_message').default(null),
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+// Razorpay Orders
+export const RAZORPAY_ORDERS = mysqlTable('razorpay_orders', {
+  id: int('id').notNull().autoincrement().primaryKey(),
+  userId: int('user_id').notNull().references(() => USER.id, { onDelete: 'cascade' }),
+  planId: int('plan_id').notNull().references(() => SUBSCRIPTION_PLANS.id),
+  razorpayOrderId: varchar('razorpay_order_id', { length: 255 }).notNull().unique(),
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 10 }).default('INR'),
+  status: mysqlEnum('status', ['created', 'attempted', 'paid', 'failed']).default('created'),
+  billingCycle: mysqlEnum('billing_cycle', ['monthly', 'quarterly', 'annual']).default('quarterly'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
+});
+
+// ============================================
+// MBTI COMPATIBILITY TABLES
+// ============================================
+
+// MBTI-AI Compatibility
+export const MBTI_AI_COMPATIBILITY = mysqlTable('mbti_ai_compatibility', {
+  id: int('id').notNull().autoincrement().primaryKey(),
+  userMbtiType: varchar('user_mbti_type', { length: 4 }).notNull(),
+  aiMbtiType: varchar('ai_mbti_type', { length: 4 }).notNull(),
+  compatibilityScore: int('compatibility_score').notNull(),
+  relationshipType: mysqlEnum('relationship_type', ['ideal', 'complementary', 'challenging', 'similar']).notNull(),
+  description: text('description').default(null),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow()
+}, (table) => ({
+  uniqueMbtiPair: unique('unique_mbti_pair').on(table.userMbtiType, table.aiMbtiType)
+}));
+
+// MBTI Compatibility Real (Pre-calculated compatibility scores)
+export const MBTI_COMPATIBILITY_REAL = mysqlTable('mbti_compatibility_real', {
+  id: int('id').notNull().autoincrement().primaryKey(),
+  userMbti: varchar('user_mbti', { length: 4 }).notNull().unique(),
+  aiFriend1: varchar('ai_friend_1', { length: 4 }).default(null),
+  aiFriend2: varchar('ai_friend_2', { length: 4 }).default(null),
+  aiFriend3: varchar('ai_friend_3', { length: 4 }).default(null),
+  aiFriend4: varchar('ai_friend_4', { length: 4 }).default(null),
+  aiFriend5: varchar('ai_friend_5', { length: 4 }).default(null),
+  score1: int('score_1').default(null),
+  score2: int('score_2').default(null),
+  score3: int('score_3').default(null),
+  score4: int('score_4').default(null),
+  score5: int('score_5').default(null)
 });
