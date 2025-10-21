@@ -7,7 +7,7 @@ import {
   AI_CHARACTERS,
   USER_AI_FRIENDS,
   USER_SUGGESTIONS,
-  USER_PREFERENCES,
+  USER_PREFERENCE_VALUES, // FIXED: Changed from USER_PREFERENCES
   PREFERENCE_CATEGORIES,
   PREFERENCE_OPTIONS
 } from "@/utils/schema";
@@ -59,7 +59,7 @@ export async function POST(request) {
       .innerJoin(USER, eq(QUIZ_SEQUENCES.user_id, USER.id))
       .where(and(
         eq(QUIZ_SEQUENCES.user_id, userId),
-        eq(QUIZ_SEQUENCES.quiz_id, 1), // Personality test
+        eq(QUIZ_SEQUENCES.quiz_id, 1),
         eq(QUIZ_SEQUENCES.isCompleted, true)
       ))
       .limit(1)
@@ -132,13 +132,12 @@ export async function POST(request) {
     const userAiMbtiTypes = userAiFriends.map(friend => friend.aiMbtiType);
     console.log("🧠 USER AI MBTI TYPES:", userAiMbtiTypes);
 
-    // If user has no AI friends, find other users with any AI friends
-    const aiTypesToSearch = userAiMbtiTypes.length > 0 ? userAiMbtiTypes : ['ENFJ', 'INFP', 'ENFP', 'INFJ']; // Default AI types
+    const aiTypesToSearch = userAiMbtiTypes.length > 0 ? userAiMbtiTypes : ['ENFJ', 'INFP', 'ENFP', 'INFJ'];
     console.log("🔍 AI TYPES TO SEARCH:", aiTypesToSearch);
 
     console.log("🚫 STEP 4: Getting already suggested users...");
     
-    // Step 4: Get users who were already suggested to avoid repeats
+    // Step 4: Get users who were already suggested
     const alreadySuggested = await db
       .select({ suggestedUserId: USER_SUGGESTIONS.suggestedUserId })
       .from(USER_SUGGESTIONS)
@@ -155,12 +154,11 @@ export async function POST(request) {
 
     console.log("🔍 STEP 5: Finding potential friends...");
     
-    // Step 5: Find potential friends who share AI friends with current user
+    // Step 5: Find potential friends
     let potentialFriends;
     
     if (userAiMbtiTypes.length > 0) {
       console.log("🔍 SEARCHING WITH USER'S AI FRIENDS");
-      // Find users who share AI friends
       potentialFriends = await db
         .select({
           userId: USER.id,
@@ -184,15 +182,14 @@ export async function POST(request) {
           eq(QUIZ_SEQUENCES.isCompleted, true)
         ))
         .where(and(
-          ne(USER_AI_FRIENDS.user_id, userId), // Not current user
+          ne(USER_AI_FRIENDS.user_id, userId),
           eq(USER_AI_FRIENDS.is_active, true),
-          inArray(USER_AI_FRIENDS.ai_friend_mbti_type, userAiMbtiTypes), // Shares AI friends
-          suggestedUserIds.length > 0 ? notInArray(USER.id, suggestedUserIds) : undefined // Not already suggested
+          inArray(USER_AI_FRIENDS.ai_friend_mbti_type, userAiMbtiTypes),
+          suggestedUserIds.length > 0 ? notInArray(USER.id, suggestedUserIds) : undefined
         ))
         .execute();
     } else {
-      console.log("🔍 FALLBACK: USER HAS NO AI FRIENDS, SEARCHING ALL");
-      // Fallback: find users with AI friends if current user has none
+      console.log("🔍 FALLBACK: USER HAS NO AI FRIENDS");
       potentialFriends = await db
         .select({
           userId: USER.id,
@@ -216,11 +213,11 @@ export async function POST(request) {
           eq(QUIZ_SEQUENCES.isCompleted, true)
         ))
         .where(and(
-          ne(USER_AI_FRIENDS.user_id, userId), // Not current user
+          ne(USER_AI_FRIENDS.user_id, userId),
           eq(USER_AI_FRIENDS.is_active, true),
-          suggestedUserIds.length > 0 ? notInArray(USER.id, suggestedUserIds) : undefined // Not already suggested
+          suggestedUserIds.length > 0 ? notInArray(USER.id, suggestedUserIds) : undefined
         ))
-        .limit(20) // Limit for performance
+        .limit(20)
         .execute();
     }
 
@@ -238,7 +235,6 @@ export async function POST(request) {
 
     console.log("🎲 STEP 6: Selecting random friend...");
     
-    // Step 6: Get a random friend suggestion
     const randomIndex = Math.floor(Math.random() * potentialFriends.length);
     const suggestedUser = potentialFriends[randomIndex];
     console.log("🎲 RANDOM INDEX:", randomIndex);
@@ -246,7 +242,6 @@ export async function POST(request) {
 
     console.log("🔗 STEP 7: Finding common AI friends...");
     
-    // Step 7: Find ALL common AI friends between current user and suggested user
     const suggestedUserAiFriends = await db
       .select({
         aiMbtiType: USER_AI_FRIENDS.ai_friend_mbti_type,
@@ -265,7 +260,6 @@ export async function POST(request) {
     const commonAiMbtiTypes = userAiMbtiTypes.filter(type => suggestedUserAiTypes.includes(type));
     console.log("🔗 COMMON AI MBTI TYPES:", commonAiMbtiTypes);
 
-    // Get AI character details for common friends
     const commonAiCharacters = commonAiMbtiTypes.length > 0 ? await db
       .select({
         id: AI_CHARACTERS.id,
@@ -282,41 +276,55 @@ export async function POST(request) {
 
     console.log("⚙️ STEP 8: Getting common preferences...");
     
-    // Step 8: Get common preferences between users
-    const [currentUserPrefs, suggestedUserPrefs] = await Promise.all([
-      // Current user preferences
-      db.select({
-        categoryName: PREFERENCE_CATEGORIES.name,
-        categoryDisplayName: PREFERENCE_CATEGORIES.display_name,
-        optionValue: PREFERENCE_OPTIONS.value,
-        optionDisplayValue: PREFERENCE_OPTIONS.display_value
-      })
-      .from(USER_PREFERENCES)
-      .innerJoin(PREFERENCE_CATEGORIES, eq(USER_PREFERENCES.category_id, PREFERENCE_CATEGORIES.id))
-      .innerJoin(PREFERENCE_OPTIONS, eq(USER_PREFERENCES.option_id, PREFERENCE_OPTIONS.id))
-      .where(eq(USER_PREFERENCES.user_id, userId))
-      .execute(),
+    // FIXED: Step 8 - Get common preferences with proper query structure
+    let currentUserPrefs = [];
+    let suggestedUserPrefs = [];
+    
+    try {
+      // Current user preferences - FIXED query structure
+      currentUserPrefs = await db
+        .select({
+          categoryId: USER_PREFERENCE_VALUES.categoryId,
+          categoryName: PREFERENCE_CATEGORIES.name,
+          categoryDisplayName: PREFERENCE_CATEGORIES.displayName,
+          optionId: USER_PREFERENCE_VALUES.optionId,
+          optionValue: PREFERENCE_OPTIONS.value,
+          optionDisplayValue: PREFERENCE_OPTIONS.displayValue
+        })
+        .from(USER_PREFERENCE_VALUES)
+        .leftJoin(PREFERENCE_CATEGORIES, eq(USER_PREFERENCE_VALUES.categoryId, PREFERENCE_CATEGORIES.id))
+        .leftJoin(PREFERENCE_OPTIONS, eq(USER_PREFERENCE_VALUES.optionId, PREFERENCE_OPTIONS.id))
+        .where(eq(USER_PREFERENCE_VALUES.userId, userId))
+        .execute();
 
-      // Suggested user preferences
-      db.select({
-        categoryName: PREFERENCE_CATEGORIES.name,
-        categoryDisplayName: PREFERENCE_CATEGORIES.display_name,
-        optionValue: PREFERENCE_OPTIONS.value,
-        optionDisplayValue: PREFERENCE_OPTIONS.display_value
-      })
-      .from(USER_PREFERENCES)
-      .innerJoin(PREFERENCE_CATEGORIES, eq(USER_PREFERENCES.category_id, PREFERENCE_CATEGORIES.id))
-      .innerJoin(PREFERENCE_OPTIONS, eq(USER_PREFERENCES.option_id, PREFERENCE_OPTIONS.id))
-      .where(eq(USER_PREFERENCES.user_id, suggestedUser.userId))
-      .execute()
-    ]);
+      console.log("⚙️ CURRENT USER PREFS:", currentUserPrefs);
 
-    console.log("⚙️ CURRENT USER PREFS:", currentUserPrefs);
-    console.log("⚙️ SUGGESTED USER PREFS:", suggestedUserPrefs);
+      // Suggested user preferences - FIXED query structure
+      suggestedUserPrefs = await db
+        .select({
+          categoryId: USER_PREFERENCE_VALUES.categoryId,
+          categoryName: PREFERENCE_CATEGORIES.name,
+          categoryDisplayName: PREFERENCE_CATEGORIES.displayName,
+          optionId: USER_PREFERENCE_VALUES.optionId,
+          optionValue: PREFERENCE_OPTIONS.value,
+          optionDisplayValue: PREFERENCE_OPTIONS.displayValue
+        })
+        .from(USER_PREFERENCE_VALUES)
+        .leftJoin(PREFERENCE_CATEGORIES, eq(USER_PREFERENCE_VALUES.categoryId, PREFERENCE_CATEGORIES.id))
+        .leftJoin(PREFERENCE_OPTIONS, eq(USER_PREFERENCE_VALUES.optionId, PREFERENCE_OPTIONS.id))
+        .where(eq(USER_PREFERENCE_VALUES.userId, suggestedUser.userId))
+        .execute();
+
+      console.log("⚙️ SUGGESTED USER PREFS:", suggestedUserPrefs);
+    } catch (prefError) {
+      console.error("⚠️ ERROR FETCHING PREFERENCES:", prefError);
+      // Continue without preferences if there's an error
+    }
 
     // Find common preferences
     const commonPreferences = currentUserPrefs.filter(currentPref =>
-      suggestedUserPrefs.some(suggestedPref =>
+      currentPref.optionValue && suggestedUserPrefs.some(suggestedPref =>
+        suggestedPref.optionValue &&
         currentPref.categoryName === suggestedPref.categoryName &&
         currentPref.optionValue === suggestedPref.optionValue
       )
@@ -324,7 +332,7 @@ export async function POST(request) {
 
     console.log("⚙️ COMMON PREFERENCES:", commonPreferences);
 
-    // Calculate age helper
+    // Calculate age
     const calculateAge = (birthDate) => {
       if (!birthDate) return 'N/A';
       try {
@@ -343,10 +351,8 @@ export async function POST(request) {
 
     console.log("💾 STEP 9: Saving suggestion to database...");
     
-    // Step 9: Save the suggestion to database so respond-suggestion route can use it
-    const compatibilityScore = Math.floor(Math.random() * 20) + 75; // 75-95% for friendship
+    const compatibilityScore = Math.floor(Math.random() * 20) + 75; // 75-95%
     
-    // UPDATED: Remove MBTI mentions from suggestion reason
     const suggestionReason = `I think you and ${suggestedUser.username} would make great friends! You both share ${commonAiCharacters.length} AI companion${commonAiCharacters.length !== 1 ? 's' : ''} and have ${commonPreferences.length} common interest${commonPreferences.length !== 1 ? 's' : ''}. Based on your conversation patterns and preferences, I believe you'd complement each other well and have great discussions. Starting a group chat with ${ai.displayName} could be the perfect way to break the ice! 🤝`;
 
     console.log("💾 SUGGESTION REASON:", suggestionReason);
@@ -366,9 +372,8 @@ export async function POST(request) {
     const suggestionId = suggestionInsert[0].insertId;
     console.log("💾 SUGGESTION ID:", suggestionId);
 
-    // Create friend suggestion data - REMOVED MBTI from user object
     const friendSuggestion = {
-      suggestionId: suggestionId, // Real database ID
+      suggestionId: suggestionId,
       user: {
         id: suggestedUser.userId,
         username: suggestedUser.username,
@@ -377,7 +382,6 @@ export async function POST(request) {
         age: calculateAge(suggestedUser.birthDate),
         location: `${suggestedUser.city || ''}, ${suggestedUser.country || ''}`.trim().replace(/^,\s*/, ''),
         religion: suggestedUser.religion
-        // REMOVED: mbtiType field to keep it private
       },
       commonAiFriends: commonAiCharacters,
       commonPreferences: commonPreferences,
@@ -387,7 +391,7 @@ export async function POST(request) {
         id: ai.id,
         displayName: ai.displayName,
         specialty: ai.specialty,
-        mbtiType: ai.mbtiType // Keep for backend logic, but don't expose to frontend
+        mbtiType: ai.mbtiType
       }
     };
 

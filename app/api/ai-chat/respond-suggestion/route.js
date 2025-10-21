@@ -122,14 +122,20 @@ export async function POST(request) {
       const suggestedAiTypes = suggestedUserAiFriends.map(f => f.aiMbtiType);
       const commonAiTypes = initiatorAiTypes.filter(type => suggestedAiTypes.includes(type));
 
+      console.log('Common AI Types:', commonAiTypes);
+
       // Get all AI characters that will be in the group (current AI + mutual AIs)
       const allGroupAiTypes = [ai.mbtiType, ...commonAiTypes].filter((type, index, self) => self.indexOf(type) === index);
       
+      console.log('All Group AI Types:', allGroupAiTypes);
+
       const groupAiCharacters = await db
         .select()
         .from(AI_CHARACTERS)
         .where(inArray(AI_CHARACTERS.mbtiType, allGroupAiTypes))
         .execute();
+
+      console.log('Group AI Characters:', groupAiCharacters);
 
       // Create group chat name
       const aiNames = groupAiCharacters.map(ai => ai.displayName).join(', ');
@@ -137,7 +143,7 @@ export async function POST(request) {
 
       // Create group chat
       const groupChat = await db.insert(GROUP_CHATS).values({
-        aiCharacterId: aiCharacterId, // Primary AI character
+        aiCharacterId: aiCharacterId,
         chatName: chatName,
         createdByUserId: userId,
         status: 'active'
@@ -145,25 +151,24 @@ export async function POST(request) {
 
       const groupChatId = groupChat[0].insertId;
 
-      // Validate that we're creating a proper 2-person friendship group chat
       console.log(`Creating friendship group chat:
         - Current user: ${userId} (${initiator.username}) - Role: admin
         - Suggested friend: ${suggestedUserId} (${suggested.username}) - Role: member
         - Primary AI: ${ai.displayName}
-        - Additional mutual AIs: ${commonAiCharacters.filter(aic => aic.id !== ai.id).map(aic => aic.displayName).join(', ') || 'None'}
+        - Additional mutual AIs: ${groupAiCharacters.filter(aic => aic.id !== ai.id).map(aic => aic.displayName).join(', ') || 'None'}
         - Total participants: 2 humans + ${groupAiCharacters.length} AIs`);
 
-      // Add ONLY the two users as participants (current user + suggested friend)
+      // Add ONLY the two users as participants
       await db.insert(GROUP_CHAT_PARTICIPANTS).values([
         {
           groupChatId: groupChatId,
-          userId: userId, // Current user who accepted the suggestion
+          userId: userId,
           role: 'admin',
           isActive: true
         },
         {
           groupChatId: groupChatId,
-          userId: suggestedUserId, // ONLY the suggested friend
+          userId: suggestedUserId,
           role: 'member',
           isActive: true
         }
@@ -235,12 +240,12 @@ export async function POST(request) {
               role: 'member'
             }
           ],
-          aiCharacters: groupAiCharacters.map(ai => ({
-            id: ai.id,
-            displayName: ai.displayName,
-            avatarUrl: ai.avatarUrl,
-            specialty: ai.specialty,
-            mbtiType: ai.mbtiType
+          aiCharacters: groupAiCharacters.map(aiChar => ({
+            id: aiChar.id,
+            displayName: aiChar.displayName,
+            avatarUrl: aiChar.avatarUrl,
+            specialty: aiChar.specialty,
+            mbtiType: aiChar.mbtiType
           })),
           totalAiCharacters: groupAiCharacters.length,
           mutualAiFriends: commonAiTypes.length
@@ -255,6 +260,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("Error responding to suggestion:", error);
+    console.error("Error stack:", error.stack);
     return NextResponse.json(
       { 
         error: "Failed to process response", 
@@ -265,7 +271,7 @@ export async function POST(request) {
   }
 }
 
-// GET method to fetch pending invitations for a user (keeping existing functionality)
+// GET method to fetch pending invitations for a user
 export async function GET(request) {
   const authResult = await authenticate(request);
   if (!authResult.authenticated) {
