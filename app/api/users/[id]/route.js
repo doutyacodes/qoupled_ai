@@ -1,75 +1,17 @@
-// import { db } from '@/utils';
-// import { USER, USER_LANGUAGES, USER_OCCUPATION } from '@/utils/schema';
-// import { NextResponse } from 'next/server';
-// import { eq, and } from 'drizzle-orm';
-
-// export async function GET(req, { params }) {
-//   try {
-//     const userId = parseInt(params.id);
-    
-//     if (isNaN(userId)) {
-//       return NextResponse.json({ message: 'Invalid user ID' }, { status: 400 });
-//     }
-    
-//     // Fetch user data
-//     const userResult = await db
-//       .select()
-//       .from(USER)
-//       .where(eq(USER.id, userId))
-//       .limit(1);
-    
-//     if (!userResult || userResult.length === 0) {
-//       return NextResponse.json({ message: 'User not found' }, { status: 404 });
-//     }
-    
-//     const user = userResult[0];
-    
-//     // Remove sensitive data
-//     delete user.password;
-    
-//     // Fetch user's languages
-//     const languagesResult = await db
-//       .select({ 
-//         id: USER_LANGUAGES.id,
-//         languageId: USER_LANGUAGES.language_id 
-//       })
-//       .from(USER_LANGUAGES)
-//       .where(eq(USER_LANGUAGES.user_id, userId));
-    
-//     // Normally we would join with a languages table to get the language names
-//     // Since you didn't provide the LANGUAGES table, we'll mock this data
-//     const languages = languagesResult.map(lang => ({
-//       id: lang.id,
-//       name: `Language ${lang.languageId}` // In a real app, this would be the actual language name
-//     }));
-    
-//     // Fetch user's occupation
-//     const occupationResult = await db
-//       .select()
-//       .from(USER_OCCUPATION)
-//       .where(eq(USER_OCCUPATION.user_id, userId))
-//       .limit(1);
-    
-//     const occupation = occupationResult.length > 0 ? occupationResult[0] : null;
-    
-//     // Combine all data
-//     const userData = {
-//       ...user,
-//       languages,
-//       occupation
-//     };
-    
-//     return NextResponse.json(userData);
-//   } catch (error) {
-//     console.error("Error fetching user profile:", error);
-//     return NextResponse.json({ message: 'Error fetching user profile' }, { status: 500 });
-//   }
-// }
-
-
 // app/api/users/[id]/route.js
 import { db } from '@/utils';
-import { USER, USER_EDUCATION, USER_JOB, USER_LANGUAGES, LANGUAGES } from '@/utils/schema';
+import { 
+  USER, 
+  USER_EDUCATION, 
+  EDUCATION_LEVELS,
+  USER_JOB, 
+  JOB_TITLES,
+  USER_LANGUAGES, 
+  LANGUAGES,
+  USER_PREFERENCE_VALUES,
+  PREFERENCE_CATEGORIES,
+  PREFERENCE_OPTIONS
+} from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
@@ -83,24 +25,94 @@ export async function GET(req, { params }) {
   const userId = parseInt(params.id);
   
   if (isNaN(userId)) {
-    return NextResponse.json({ message: 'Invalid user ID' }, { status: 400 });
+    return NextResponse.json({ 
+      message: 'Invalid user ID',
+      success: false 
+    }, { status: 400 });
   }
 
   try {
-    // Get user basic info
-    const user = await db.select().from(USER).where(eq(USER.id, userId)).limit(1);
+    // ====================================
+    // GET USER BASIC INFO
+    // ====================================
+    const user = await db
+      .select()
+      .from(USER)
+      .where(eq(USER.id, userId))
+      .limit(1);
 
     if (!user || user.length === 0) {
-      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+      return NextResponse.json({ 
+        message: 'User not found',
+        success: false 
+      }, { status: 404 });
     }
 
-    // Get user education
-    const education = await db.select().from(USER_EDUCATION).where(eq(USER_EDUCATION.user_id, userId));
+    // ====================================
+    // GET USER'S LOOKING FOR PREFERENCE
+    // ====================================
+    let lookingFor = null;
+    try {
+      // Find the looking_for category
+      const [category] = await db
+        .select({ id: PREFERENCE_CATEGORIES.id })
+        .from(PREFERENCE_CATEGORIES)
+        .where(eq(PREFERENCE_CATEGORIES.name, 'looking_for'))
+        .limit(1);
 
-    // Get user job
-    const jobs = await db.select().from(USER_JOB).where(eq(USER_JOB.user_id, userId));
+      if (category) {
+        // Get user's preference
+        const [preference] = await db
+          .select({
+            value: PREFERENCE_OPTIONS.value
+          })
+          .from(USER_PREFERENCE_VALUES)
+          .leftJoin(PREFERENCE_OPTIONS, eq(USER_PREFERENCE_VALUES.optionId, PREFERENCE_OPTIONS.id))
+          .where(
+            and(
+              eq(USER_PREFERENCE_VALUES.userId, userId),
+              eq(USER_PREFERENCE_VALUES.categoryId, category.id)
+            )
+          )
+          .limit(1);
 
-    // Get user languages
+        lookingFor = preference?.value || null;
+      }
+    } catch (prefError) {
+      console.error('Error fetching lookingFor preference:', prefError);
+    }
+
+    // ====================================
+    // GET USER EDUCATION WITH DETAILS
+    // ====================================
+    const education = await db
+      .select({
+        id: USER_EDUCATION.id,
+        degree: USER_EDUCATION.degree,
+        levelName: EDUCATION_LEVELS.levelName,
+        graduationYear: USER_EDUCATION.graduationYear
+      })
+      .from(USER_EDUCATION)
+      .leftJoin(EDUCATION_LEVELS, eq(USER_EDUCATION.education_level_id, EDUCATION_LEVELS.id))
+      .where(eq(USER_EDUCATION.user_id, userId));
+
+    // ====================================
+    // GET USER JOB WITH DETAILS
+    // ====================================
+    const jobs = await db
+      .select({
+        id: USER_JOB.id,
+        title: JOB_TITLES.title,
+        company: USER_JOB.company,
+        location: USER_JOB.location
+      })
+      .from(USER_JOB)
+      .leftJoin(JOB_TITLES, eq(USER_JOB.job_title_id, JOB_TITLES.id))
+      .where(eq(USER_JOB.user_id, userId));
+
+    // ====================================
+    // GET USER LANGUAGES
+    // ====================================
     const userLanguages = await db
       .select({
         id: USER_LANGUAGES.id,
@@ -110,7 +122,9 @@ export async function GET(req, { params }) {
       .innerJoin(LANGUAGES, eq(USER_LANGUAGES.language_id, LANGUAGES.id))
       .where(eq(USER_LANGUAGES.user_id, userId));
 
-    // Calculate age from birthDate
+    // ====================================
+    // CALCULATE AGE FROM BIRTHDATE
+    // ====================================
     const birthDate = new Date(user[0].birthDate);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -119,17 +133,29 @@ export async function GET(req, { params }) {
       age--;
     }
 
+    // ====================================
+    // PREPARE USER DATA RESPONSE
+    // ====================================
     const userData = {
       ...user[0],
       age,
+      lookingFor, // NEW: Add lookingFor preference
       education,
       jobs,
       languages: userLanguages.map(lang => lang.language)
     };
 
-    return NextResponse.json({ user: userData }, { status: 200 });
+    return NextResponse.json({ 
+      user: userData,
+      success: true 
+    }, { status: 200 });
+
   } catch (error) {
     console.error("Error fetching user profile:", error);
-    return NextResponse.json({ message: 'Error fetching user profile' }, { status: 500 });
+    return NextResponse.json({ 
+      message: 'Error fetching user profile',
+      error: error.message,
+      success: false 
+    }, { status: 500 });
   }
 }

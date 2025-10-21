@@ -1,9 +1,10 @@
 "use client"
 import { useState, useEffect } from 'react';
-import { Search, Filter, ChevronDown, Heart, UserPlus, Clock, Calendar, Check, X } from 'lucide-react';
+import { Search, Filter, ChevronDown, Heart, UserPlus, Clock, Calendar, Check, X, Copy, CheckCircle, Share2 } from 'lucide-react';
 import ModernNavbar from '@/app/_components/Navbar';
 import { encryptText } from '@/utils/encryption';
 import Image from 'next/image';
+import toast, { Toaster } from 'react-hot-toast';
 
 const InvitationsPage = () => {
   const [activeTab, setActiveTab] = useState('sent-invites');
@@ -13,13 +14,40 @@ const InvitationsPage = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [inviteLink, setInviteLink] = useState('');
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   const itemsPerPage = 5;
 
   const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
 
   useEffect(() => {
     fetchInvitedUsers();
+    generateInviteLink();
   }, []);
+
+  const generateInviteLink = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/invitations/generate-link', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate invite link');
+      }
+      
+      const data = await response.json();
+      setInviteLink(data.inviteLink);
+    } catch (error) {
+      console.error('Error generating invite link:', error);
+      toast.error('Failed to generate invite link');
+    }
+  };
 
   const fetchInvitedUsers = async () => {
     setIsLoading(true);
@@ -41,8 +69,44 @@ const InvitationsPage = () => {
       setInvitedUsers(data.invitations);
     } catch (error) {
       console.error('Error fetching invitations:', error);
+      toast.error('Failed to load invitations');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopySuccess(true);
+      toast.success('Invite link copied to clipboard!');
+      
+      setTimeout(() => {
+        setCopySuccess(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      toast.error('Failed to copy link');
+    }
+  };
+
+  const handleShareLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join Qoupled',
+          text: 'Join me on Qoupled - Find your perfect match!',
+          url: inviteLink
+        });
+        toast.success('Shared successfully!');
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Error sharing:', error);
+        }
+      }
+    } else {
+      // Fallback to copy
+      handleCopyLink();
     }
   };
 
@@ -73,14 +137,12 @@ const InvitationsPage = () => {
   const getFilteredUsers = () => {
     let filtered = [...invitedUsers];
     
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(user => 
         user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
-    // Apply sort
     filtered.sort((a, b) => {
       if (sortBy === 'newest') {
         return new Date(b.created_at) - new Date(a.created_at);
@@ -101,22 +163,17 @@ const InvitationsPage = () => {
   const totalPages = Math.ceil(getFilteredUsers().length / itemsPerPage);
   
   const handleViewProfile = (userId) => {
-    // Navigate to user profile
-    window.location.href = `/profile/${userId}`;
+    window.location.href = `/profile/${userId}/view-profile`;
   };
 
   const handleCheckCompatibility = (userId) => {
-    // Navigate to compatibility page
     const userIdToEncrypt = String(userId)
     let encryptedUserId = encryptText(userIdToEncrypt)
     window.location.href = `compatibility-check?userId=${encodeURIComponent(encryptedUserId)}`;
   };
 
   const checkUserEligibility = (user) => {
-    // Check if first quiz is completed
     const firstQuizCompleted = user.quiz_sequence && user.quiz_sequence.isCompleted;
-    
-    // Check if second test has 25 questions completed
     const secondTestCompleted = user.test_progress && user.test_progress.length >= 25;
     
     return firstQuizCompleted && secondTestCompleted;
@@ -124,8 +181,73 @@ const InvitationsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500">
-      {/* Navbar */}
-       {/* <ModernNavbar /> */}
+      <Toaster 
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            borderRadius: '12px',
+          },
+        }}
+      />
+
+      {/* Invite Link Modal */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Your Invite Link</h3>
+              <button 
+                onClick={() => setShowLinkModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-4">
+                Share this link with people you'd like to invite to Qoupled. When they sign up using this link, they'll appear in your invitations list.
+              </p>
+              
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-4">
+                <p className="text-sm text-gray-800 break-all font-mono">
+                  {inviteLink}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleCopyLink}
+                className="flex-1 flex items-center justify-center px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-colors font-medium"
+              >
+                {copySuccess ? (
+                  <>
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-5 w-5 mr-2" />
+                    Copy Link
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={handleShareLink}
+                className="flex-1 flex items-center justify-center px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium"
+              >
+                <Share2 className="h-5 w-5 mr-2" />
+                Share
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="container mx-auto px-4 pt-20 pb-12">
@@ -134,20 +256,19 @@ const InvitationsPage = () => {
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className="p-6 bg-gradient-to-r from-rose-500 to-red-600 text-white">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                                <Image src={"/transparent_logo.png"} width={60} height={40} />
-                    
-                    <h1 className="text-2xl font-bold">Manage Invitations</h1>
-                    </div>
-                    <button
-                    onClick={() => window.location.href = '/my-matches'}
-                    className="px-4 py-2 bg-white text-rose-600 rounded-lg hover:bg-rose-50 transition-colors duration-200 font-medium flex items-center"
-                    >
-                    <UserPlus className="w-5 h-5 mr-2" />
-                    Generate Invite Link
-                    </button>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center">
+                  <Image src={"/transparent_logo.png"} width={60} height={40} alt="Logo" />
+                  <h1 className="text-2xl font-bold">Manage Invitations</h1>
                 </div>
+                <button
+                  onClick={() => setShowLinkModal(true)}
+                  className="px-6 py-3 bg-white text-rose-600 rounded-xl hover:bg-rose-50 transition-all duration-200 font-semibold flex items-center shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Generate Invite Link
+                </button>
+              </div>
             </div>
 
             {/* Tab Navigation */}
@@ -160,7 +281,7 @@ const InvitationsPage = () => {
               >
                 <div className="flex items-center justify-center">
                   <UserPlus className="w-5 h-5 mr-2" />
-                  <span>Sent Invites</span>
+                  <span>Sent Invites ({invitedUsers.length})</span>
                 </div>
               </button>
             </div>
@@ -256,12 +377,12 @@ const InvitationsPage = () => {
                             <div className="sm:ml-6 flex-1 text-center sm:text-left">
                               <h3 className="font-semibold text-lg text-gray-900">{user.username}, {calculateAge(user.birthDate)}</h3>
                               <div className="flex flex-col sm:flex-row sm:items-center text-sm text-gray-500 mt-1">
-                                <div className="flex items-center">
+                                <div className="flex items-center justify-center sm:justify-start">
                                   <Calendar className="w-4 h-4 mr-1" />
                                   <span>Invited on: {formatDate(user.created_at)}</span>
                                 </div>
                                 <span className="hidden sm:inline mx-2">•</span>
-                                <div className="flex items-center mt-1 sm:mt-0">
+                                <div className="flex items-center justify-center sm:justify-start mt-1 sm:mt-0">
                                   {user.isProfileComplete ? (
                                     <div className="flex items-center text-green-600">
                                       <Check className="w-4 h-4 mr-1" />
@@ -276,7 +397,7 @@ const InvitationsPage = () => {
                                 </div>
                               </div>
 
-                              <div className="flex flex-wrap gap-2 mt-3">
+                              <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
                                 <span className="px-3 py-1 bg-rose-100 text-rose-700 text-xs rounded-full">
                                   {user.quiz_sequence && user.quiz_sequence.isCompleted ? 
                                     "First Test Completed" : "First Test Pending"}
@@ -371,6 +492,12 @@ const InvitationsPage = () => {
                       </div>
                       <h3 className="text-xl font-medium text-gray-900">No invitations sent yet</h3>
                       <p className="text-gray-500 mt-2">Share your invitation link with others to connect</p>
+                      <button
+                        onClick={() => setShowLinkModal(true)}
+                        className="mt-6 px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors font-medium"
+                      >
+                        Generate Invite Link
+                      </button>
                     </div>
                   )}
                 </>

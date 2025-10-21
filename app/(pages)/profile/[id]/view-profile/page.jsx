@@ -28,13 +28,16 @@ import {
   Award,
   Calendar,
   Building,
-  Globe
+  Globe,
+  Target,
+  Sparkles
 } from 'lucide-react';
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { encryptText } from '@/utils/encryption';
+import { motion } from 'framer-motion';
 
 // Helper function to calculate age
 function calculateAge(birthDate) {
@@ -110,126 +113,139 @@ export default function ModernUserProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-100 flex items-center justify-center p-4">
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 md:p-8 shadow-lg border border-gray-200/50">
+      <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl"
+        >
           <div className="flex flex-col items-center">
-            <div className="relative mb-4">
-              <div className="w-12 h-12 border-4 border-gray-300 border-t-rose-500 rounded-full animate-spin"></div>
-              <User className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-5 w-5 text-rose-500" />
+            <div className="relative mb-6">
+              <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <User className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-white" />
             </div>
-            <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">Loading Profile</h2>
-            <p className="text-gray-600 text-sm md:text-base">Getting user information...</p>
+            <h2 className="text-xl font-bold text-white mb-2">Loading Profile</h2>
+            <p className="text-white/80 text-sm">Getting user information...</p>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   if (error || !userData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-100 flex items-center justify-center p-4">
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 md:p-8 shadow-lg max-w-md w-full text-center border border-gray-200/50">
-          <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <User className="h-8 w-8 text-red-500" />
+      <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl max-w-md w-full text-center"
+        >
+          <div className="bg-red-500/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
+            <User className="h-10 w-10 text-white" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
+          <h2 className="text-2xl font-bold text-white mb-3">
             {error ? 'Error Loading Profile' : 'User Not Found'}
           </h2>
-          <p className="text-gray-600 mb-6 text-sm md:text-base">
+          <p className="text-white/80 mb-8">
             {error || "The user profile you're looking for doesn't exist."}
           </p>
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => router.back()}
-            className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-md"
+            className="bg-white text-rose-600 px-8 py-3 rounded-xl font-semibold transition-colors shadow-lg hover:bg-gray-100"
           >
             Go Back
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </div>
     );
   }
 
-  // Verification items with subtle styling
+  // Verification items
   const verifications = [
     { 
       active: userData.isProfileVerified, 
       text: "Photo", 
-      icon: <Shield className="h-4 w-4" />,
-      color: "bg-blue-500"
+      icon: <Shield className="h-4 w-4" />
     },
     { 
       active: userData.isEmailVerified, 
       text: "Email", 
-      icon: <Mail className="h-4 w-4" />,
-      color: "bg-green-500"
+      icon: <Mail className="h-4 w-4" />
     },
     { 
       active: userData.isPhoneVerified, 
       text: "Phone", 
-      icon: <Phone className="h-4 w-4" />,
-      color: "bg-purple-500"
+      icon: <Phone className="h-4 w-4" />
     },
     { 
       active: true, 
       text: "Identity", 
-      icon: <Verified className="h-4 w-4" />,
-      color: "bg-amber-500"
+      icon: <Verified className="h-4 w-4" />
     }
   ];
 
-  // Profile stats for the header
+  // Profile stats
   const profileStats = [
-    { label: "Score", value: "92%", icon: <Star className="h-4 w-4" /> },
-    { label: "Matches", value: "127", icon: <Heart className="h-4 w-4" /> },
-    { label: "Views", value: "1.2k", icon: <User className="h-4 w-4" /> }
+    { label: "Match Score", value: "92%", icon: <Star className="h-5 w-5" /> },
+    { label: "Compatibility", value: "87%", icon: <Heart className="h-5 w-5" /> },
+    { label: "Profile Views", value: "1.2k", icon: <User className="h-5 w-5" /> }
   ];
 
-  // Personal info items
+  // Personal info items with lookingFor added
   const personalInfo = [
     { 
-      icon: <Calendar className="h-4 w-4 text-rose-500" />, 
+      icon: <Calendar className="h-5 w-5 text-white" />, 
       label: "Age", 
       value: userData.birthDate ? calculateAge(userData.birthDate) : "Not set",
       category: "basic"
     },
     { 
-      icon: <User className="h-4 w-4 text-rose-500" />, 
+      icon: <User className="h-5 w-5 text-white" />, 
       label: "Gender", 
       value: userData.gender || "Not set",
       category: "basic"
     },
     { 
-      icon: <MapPin className="h-4 w-4 text-rose-500" />, 
+      icon: <Target className="h-5 w-5 text-white" />, 
+      label: "Looking For", 
+      value: userData.lookingFor || "Not set",
+      category: "basic",
+      highlight: true
+    },
+    { 
+      icon: <MapPin className="h-5 w-5 text-white" />, 
       label: "Location", 
       value: userData.city ? `${userData.city}, ${userData.country || 'India'}` : "Not set",
       category: "basic"
     },
     { 
-      icon: <BookOpen className="h-4 w-4 text-rose-500" />, 
+      icon: <BookOpen className="h-5 w-5 text-white" />, 
       label: "Religion", 
       value: userData.religion || "Not set",
       category: "personal"
     },
     { 
-      icon: <Users className="h-4 w-4 text-rose-500" />, 
+      icon: <Users className="h-5 w-5 text-white" />, 
       label: "Caste", 
       value: userData.caste || "Not set",
       category: "personal"
     },
     { 
-      icon: <Ruler className="h-4 w-4 text-rose-500" />, 
+      icon: <Ruler className="h-5 w-5 text-white" />, 
       label: "Height", 
       value: userData.height ? `${userData.height} cm` : "Not set",
       category: "physical"
     },
     { 
-      icon: <Scale className="h-4 w-4 text-rose-500" />, 
+      icon: <Scale className="h-5 w-5 text-white" />, 
       label: "Weight", 
       value: userData.weight ? `${userData.weight} kg` : "Not set",
       category: "physical"
     },
     { 
-      icon: <CircleDollarSign className="h-4 w-4 text-rose-500" />, 
+      icon: <CircleDollarSign className="h-5 w-5 text-white" />, 
       label: "Income", 
       value: userData.income || "Not set",
       category: "professional"
@@ -239,370 +255,475 @@ export default function ModernUserProfile() {
   const getDefaultImage = (gender) => {
     return gender === 'Female' 
       ? "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop"
-      : "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop";
+      : "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop"
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-100">
-      <div className="container mx-auto px-4 py-4 md:py-6 max-w-6xl">
-        {/* Header with navigation */}
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <button 
+    <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {/* Header Navigation */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between mb-8"
+        >
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => router.back()}
-            className="flex items-center bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 px-3 py-2 md:px-4 md:py-2 rounded-lg transition-colors border border-gray-200/50 shadow-sm"
+            className="flex items-center bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-3 rounded-xl transition-all shadow-lg border border-white/30"
           >
-            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
-            <span className="text-sm md:text-base">Back</span>
-          </button>
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            <span className="font-medium">Back</span>
+          </motion.button>
           
-          <div className="flex items-center space-x-2 md:space-x-3">
-            <button 
+          <div className="flex items-center space-x-3">
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={toggleBookmark}
-              className={`p-2 md:p-3 rounded-lg transition-colors border border-gray-200/50 shadow-sm ${
+              className={`p-3 rounded-xl transition-all shadow-lg border border-white/30 ${
                 isBookmarked 
-                  ? 'bg-rose-500 text-white' 
-                  : 'bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700'
+                  ? 'bg-white text-rose-500' 
+                  : 'bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white'
               }`}
             >
-              {isBookmarked ? <BookmarkCheck className="h-4 w-4 md:h-5 md:w-5" /> : <Bookmark className="h-4 w-4 md:h-5 md:w-5" />}
-            </button>
+              {isBookmarked ? <BookmarkCheck className="h-6 w-6" /> : <Bookmark className="h-6 w-6" />}
+            </motion.button>
             
-            <button className="p-2 md:p-3 bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 rounded-lg transition-colors border border-gray-200/50 shadow-sm">
-              <Share2 className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-xl transition-all shadow-lg border border-white/30"
+            >
+              <Share2 className="h-6 w-6" />
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Profile Header Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 overflow-hidden mb-6 md:mb-8">
-          <div className="p-4 md:p-8">
-            <div className="flex flex-col items-center text-center md:flex-row md:text-left md:items-start gap-4 md:gap-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden mb-8"
+        >
+          <div className="p-8">
+            <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8">
               {/* Profile Image */}
               <div className="relative flex-shrink-0">
-                <div className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-2xl overflow-hidden border-4 border-white shadow-lg">
+                <div className="w-40 h-40 lg:w-48 lg:h-48 rounded-3xl overflow-hidden border-4 border-white/30 shadow-2xl">
                   <Image 
                     src={userData.profileImageUrl ? `${BASE_IMAGE_URL}${userData.profileImageUrl}` : getDefaultImage(userData.gender)}
                     alt={userData.username}
-                    width={160}
-                    height={160}
+                    width={192}
+                    height={192}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 
-                {/* Online status indicator */}
-                <div className="absolute -bottom-1 -right-1 md:-bottom-2 md:-right-2 w-6 h-6 md:w-8 md:h-8 bg-green-500 border-3 md:border-4 border-white rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 md:w-3 md:h-3 bg-white rounded-full"></div>
+                {/* Online status */}
+                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-green-500 border-4 border-white rounded-full flex items-center justify-center shadow-lg">
+                  <div className="w-4 h-4 bg-white rounded-full"></div>
                 </div>
               </div>
 
               {/* Profile Info */}
-              <div className="flex-1 w-full">
-                <div className="mb-4">
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center md:justify-start flex-wrap gap-2">
+              <div className="flex-1 w-full text-center lg:text-left">
+                <div className="mb-6">
+                  <h1 className="text-4xl lg:text-5xl font-bold text-white mb-3 flex items-center justify-center lg:justify-start flex-wrap gap-3">
                     {userData.username}
                     {userData.isProfileVerified && (
-                      <Verified className="h-6 w-6 md:h-8 md:w-8 text-blue-500" />
+                      <Verified className="h-8 w-8 text-blue-400" />
                     )}
                   </h1>
-                  <p className="text-gray-600 text-base md:text-lg">
+                  <p className="text-white/90 text-xl">
                     {calculateAge(userData.birthDate)} years old • {userData.city || 'Location not set'}
                   </p>
                 </div>
 
                 {/* Profile Stats */}
-                <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
+                <div className="grid grid-cols-3 gap-4 mb-6">
                   {profileStats.map((stat, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg md:rounded-xl p-3 md:p-4 text-center border border-gray-200/50">
-                      <div className="flex items-center justify-center mb-1 md:mb-2 text-gray-600">
+                    <motion.div 
+                      key={index} 
+                      whileHover={{ scale: 1.05 }}
+                      className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/30"
+                    >
+                      <div className="flex items-center justify-center mb-2 text-white">
                         {stat.icon}
                       </div>
-                      <div className="text-lg md:text-2xl font-bold text-gray-800">{stat.value}</div>
-                      <div className="text-gray-600 text-xs md:text-sm">{stat.label}</div>
-                    </div>
+                      <div className="text-2xl font-bold text-white">{stat.value}</div>
+                      <div className="text-white/80 text-sm">{stat.label}</div>
+                    </motion.div>
                   ))}
                 </div>
 
                 {/* Verification Badges */}
-                <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-4 md:mb-6">
+                <div className="flex flex-wrap justify-center lg:justify-start gap-2 mb-6">
                   {verifications.map((verification, index) => (
-                    <div 
+                    <motion.div 
                       key={index}
-                      className={`flex items-center px-2 py-1 md:px-3 md:py-2 rounded-full text-xs md:text-sm font-medium border ${
+                      whileHover={{ scale: 1.05 }}
+                      className={`flex items-center px-4 py-2 rounded-full text-sm font-medium border-2 ${
                         verification.active 
-                          ? `${verification.color} text-white shadow-sm` 
-                          : 'bg-gray-100 text-gray-500 border-gray-200'
+                          ? 'bg-white text-rose-600 border-white shadow-lg' 
+                          : 'bg-white/20 text-white border-white/30'
                       }`}
                     >
                       {verification.icon}
-                      <span className="ml-1 md:ml-2">{verification.text}</span>
-                      {verification.active && <CheckCircle className="h-3 w-3 md:h-4 md:w-4 ml-1" />}
-                    </div>
+                      <span className="ml-2">{verification.text}</span>
+                      {verification.active && <CheckCircle className="h-4 w-4 ml-2" />}
+                    </motion.div>
                   ))}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Link 
                     href={`/compatibility-check?userId=${encodeURIComponent(encryptText(`${userId}`))}`}
-                    className="flex items-center justify-center bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-lg font-medium transition-colors shadow-md text-sm md:text-base"
+                    className="flex-1"
                   >
-                    <Heart className="h-4 w-4 mr-2" />
-                    Check Compatibility
+                    <motion.button 
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full flex items-center justify-center bg-white text-rose-600 px-6 py-4 rounded-xl font-bold transition-colors shadow-lg hover:bg-gray-100"
+                    >
+                      <Heart className="h-5 w-5 mr-2" />
+                      Check Compatibility
+                    </motion.button>
                   </Link>
                   
-                  <button className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 md:px-6 md:py-3 rounded-lg font-medium transition-colors border border-gray-200 text-sm md:text-base">
-                    <MessageCircle className="h-4 w-4 mr-2" />
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-4 rounded-xl font-bold transition-all border border-white/30"
+                  >
+                    <MessageCircle className="h-5 w-5 mr-2" />
                     Send Message
-                  </button>
+                  </motion.button>
                   
-                  <button className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 md:px-6 md:py-3 rounded-lg font-medium transition-colors border border-gray-200 text-sm md:text-base">
-                    <UserPlus className="h-4 w-4 mr-2" />
+                  {/* <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-4 rounded-xl font-bold transition-all border border-white/30"
+                  >
+                    <UserPlus className="h-5 w-5 mr-2" />
                     Connect
-                  </button>
+                  </motion.button> */}
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Tab Navigation */}
-        <div className="flex justify-center mb-6 md:mb-8 overflow-x-auto">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-1 md:p-2 border border-gray-200/50 shadow-sm">
-            <div className="flex space-x-1 md:space-x-2 min-w-max">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex justify-center mb-8 overflow-x-auto"
+        >
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-2 border border-white/20 shadow-xl">
+            <div className="flex space-x-2 min-w-max">
               {[
-                { id: 'overview', label: 'Overview', icon: <User className="h-3 w-3 md:h-4 md:w-4" /> },
-                { id: 'details', label: 'Details', icon: <Globe className="h-3 w-3 md:h-4 md:w-4" /> },
-                { id: 'education', label: 'Education', icon: <GraduationCap className="h-3 w-3 md:h-4 md:w-4" /> },
-                { id: 'career', label: 'Career', icon: <Briefcase className="h-3 w-3 md:h-4 md:w-4" /> }
+                { id: 'overview', label: 'Overview', icon: <User className="h-5 w-5" /> },
+                { id: 'details', label: 'Details', icon: <Globe className="h-5 w-5" /> },
+                { id: 'education', label: 'Education', icon: <GraduationCap className="h-5 w-5" /> },
+                { id: 'career', label: 'Career', icon: <Briefcase className="h-5 w-5" /> }
               ].map((tab) => (
-                <button
+                <motion.button
                   key={tab.id}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-3 py-2 md:px-6 md:py-3 rounded-lg font-medium transition-all text-xs md:text-sm ${
+                  className={`flex items-center px-6 py-3 rounded-xl font-semibold transition-all ${
                     activeTab === tab.id
-                      ? 'bg-rose-500 text-white shadow-md'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-white text-rose-600 shadow-lg'
+                      : 'text-white hover:bg-white/20'
                   }`}
                 >
                   {tab.icon}
-                  <span className="ml-1 md:ml-2 whitespace-nowrap">{tab.label}</span>
-                </button>
+                  <span className="ml-2">{tab.label}</span>
+                </motion.button>
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Tab Content */}
-        <div className="space-y-6 md:space-y-8">
+        <div className="space-y-8">
           {/* Overview Tab */}
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Personal Information */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-                <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                  <User className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+              >
+                <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                  <User className="h-6 w-6 mr-3" />
                   Personal Information
                 </h3>
-                <div className="space-y-3 md:space-y-6">
+                <div className="space-y-4">
                   {personalInfo.filter(info => info.category === 'basic').map((info, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 md:p-4 bg-gray-50 rounded-lg md:rounded-xl border border-gray-200/50">
+                    <motion.div 
+                      key={index} 
+                      whileHover={{ scale: 1.02 }}
+                      className={`flex items-center justify-between p-4 rounded-2xl border ${
+                        info.highlight 
+                          ? 'bg-gradient-to-r from-rose-500/30 to-pink-500/30 border-white/40' 
+                          : 'bg-white/10 border-white/20'
+                      }`}
+                    >
                       <div className="flex items-center">
                         {info.icon}
-                        <span className="text-gray-700 font-medium ml-2 md:ml-3 text-sm md:text-base">{info.label}</span>
+                        <span className="text-white font-semibold ml-3">{info.label}</span>
                       </div>
-                      <span className="text-gray-800 font-semibold text-sm md:text-base">{info.value}</span>
-                    </div>
+                      <span className="text-white font-bold">{info.value}</span>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
 
               {/* Contact Information */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-                <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                  <Mail className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+              >
+                <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                  <Mail className="h-6 w-6 mr-3" />
                   Contact Information
                 </h3>
-                <div className="space-y-3 md:space-y-6">
-                  <div className="flex items-center justify-between p-3 md:p-4 bg-gray-50 rounded-lg md:rounded-xl border border-gray-200/50">
+                <div className="space-y-4">
+                  <motion.div 
+                    whileHover={{ scale: 1.02 }}
+                    className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/20"
+                  >
                     <div className="flex items-center">
-                      <Mail className="h-4 w-4 text-rose-500" />
-                      <span className="text-gray-700 font-medium ml-2 md:ml-3 text-sm md:text-base">Email</span>
+                      <Mail className="h-5 w-5 text-white" />
+                      <span className="text-white font-semibold ml-3">Email</span>
                     </div>
-                    <span className="text-gray-800 font-semibold text-sm md:text-base break-all">{userData.email || "Not provided"}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 md:p-4 bg-gray-50 rounded-lg md:rounded-xl border border-gray-200/50">
+                    <span className="text-white font-bold text-sm break-all">{userData.email || "Not provided"}</span>
+                  </motion.div>
+                  <motion.div 
+                    whileHover={{ scale: 1.02 }}
+                    className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/20"
+                  >
                     <div className="flex items-center">
-                      <Phone className="h-4 w-4 text-rose-500" />
-                      <span className="text-gray-700 font-medium ml-2 md:ml-3 text-sm md:text-base">Phone</span>
+                      <Phone className="h-5 w-5 text-white" />
+                      <span className="text-white font-semibold ml-3">Phone</span>
                     </div>
-                    <span className="text-gray-800 font-semibold text-sm md:text-base">{userData.phone || "Not provided"}</span>
-                  </div>
+                    <span className="text-white font-bold">{userData.phone || "Not provided"}</span>
+                  </motion.div>
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
 
           {/* Details Tab */}
           {activeTab === 'details' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-              {/* Personal Details */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-                <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                  <BookOpen className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+              >
+                <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                  <BookOpen className="h-6 w-6 mr-3" />
                   Personal Details
                 </h3>
-                <div className="space-y-3 md:space-y-6">
+                <div className="space-y-4">
                   {personalInfo.filter(info => info.category === 'personal').map((info, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 md:p-4 bg-gray-50 rounded-lg md:rounded-xl border border-gray-200/50">
+                    <motion.div 
+                      key={index} 
+                      whileHover={{ scale: 1.02 }}
+                      className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/20"
+                    >
                       <div className="flex items-center">
                         {info.icon}
-                        <span className="text-gray-700 font-medium ml-2 md:ml-3 text-sm md:text-base">{info.label}</span>
+                        <span className="text-white font-semibold ml-3">{info.label}</span>
                       </div>
-                      <span className="text-gray-800 font-semibold text-sm md:text-base">{info.value}</span>
-                    </div>
+                      <span className="text-white font-bold">{info.value}</span>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
 
-              {/* Physical Details */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-                <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                  <Ruler className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+              >
+                <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                  <Ruler className="h-6 w-6 mr-3" />
                   Physical Details
                 </h3>
-                <div className="space-y-3 md:space-y-6">
+                <div className="space-y-4">
                   {personalInfo.filter(info => info.category === 'physical').map((info, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 md:p-4 bg-gray-50 rounded-lg md:rounded-xl border border-gray-200/50">
+                    <motion.div 
+                      key={index} 
+                      whileHover={{ scale: 1.02 }}
+                      className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/20"
+                    >
                       <div className="flex items-center">
                         {info.icon}
-                        <span className="text-gray-700 font-medium ml-2 md:ml-3 text-sm md:text-base">{info.label}</span>
+                        <span className="text-white font-semibold ml-3">{info.label}</span>
                       </div>
-                      <span className="text-gray-800 font-semibold text-sm md:text-base">{info.value}</span>
-                    </div>
+                      <span className="text-white font-bold">{info.value}</span>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
 
-          {/* Education Tab */}
+          {/* Education & Career tabs remain similar but with updated styling */}
           {activeTab === 'education' && (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-              <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                <GraduationCap className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+            >
+              <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                <GraduationCap className="h-6 w-6 mr-3" />
                 Education Background
               </h3>
               {userData.education && userData.education.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {userData.education.map((edu, index) => (
-                    <div key={index} className="bg-gray-50 p-4 md:p-6 rounded-lg md:rounded-2xl border border-gray-200/50 hover:bg-gray-100 transition-colors">
+                    <motion.div 
+                      key={index} 
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white/10 p-6 rounded-2xl border border-white/20"
+                    >
                       <div className="flex items-start">
-                        <div className="bg-blue-500 rounded-full p-2 md:p-3 mr-3 md:mr-4">
-                          <GraduationCap className="h-4 w-4 md:h-6 md:w-6 text-white" />
+                        <div className="bg-blue-500 rounded-full p-3 mr-4">
+                          <GraduationCap className="h-6 w-6 text-white" />
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-base md:text-xl font-semibold text-gray-800 mb-1 md:mb-2">{edu.degree}</h4>
-                          <p className="text-gray-600 mb-1 md:mb-2 text-sm md:text-base">{edu.levelName}</p>
-                          <div className="flex items-center text-gray-500">
-                            <Calendar className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                            <span className="text-xs md:text-sm">Graduated in {edu.graduationYear}</span>
+                          <h4 className="text-xl font-bold text-white mb-2">{edu.degree}</h4>
+                          <p className="text-white/80 mb-2">{edu.levelName}</p>
+                          <div className="flex items-center text-white/70">
+                            <Calendar className="h-4 w-4 mr-2" />
+                            <span className="text-sm">Graduated in {edu.graduationYear}</span>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 md:py-12">
-                  <GraduationCap className="h-12 w-12 md:h-16 md:w-16 text-gray-300 mx-auto mb-3 md:mb-4" />
-                  <p className="text-gray-500 text-base md:text-lg">No education information available</p>
+                <div className="text-center py-12">
+                  <GraduationCap className="h-16 w-16 text-white/30 mx-auto mb-4" />
+                  <p className="text-white/70 text-lg">No education information available</p>
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
-          {/* Career Tab */}
           {activeTab === 'career' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-              {/* Work Experience */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-                <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                  <Briefcase className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+              >
+                <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                  <Briefcase className="h-6 w-6 mr-3" />
                   Work Experience
                 </h3>
                 {userData.jobs && userData.jobs.length > 0 ? (
-                  <div className="space-y-4 md:space-y-6">
+                  <div className="space-y-6">
                     {userData.jobs.map((job, index) => (
-                      <div key={index} className="bg-gray-50 p-4 md:p-6 rounded-lg md:rounded-2xl border border-gray-200/50 hover:bg-gray-100 transition-colors">
+                      <motion.div 
+                        key={index} 
+                        whileHover={{ scale: 1.02 }}
+                        className="bg-white/10 p-6 rounded-2xl border border-white/20"
+                      >
                         <div className="flex items-start">
-                          <div className="bg-green-500 rounded-full p-2 md:p-3 mr-3 md:mr-4">
-                            <Building className="h-4 w-4 md:h-6 md:w-6 text-white" />
+                          <div className="bg-green-500 rounded-full p-3 mr-4">
+                            <Building className="h-6 w-6 text-white" />
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-base md:text-xl font-semibold text-gray-800 mb-1 md:mb-2">{job.title}</h4>
-                            <p className="text-gray-600 mb-1 md:mb-2 text-sm md:text-base">{job.company}</p>
-                            <div className="flex items-center text-gray-500">
-                              <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                              <span className="text-xs md:text-sm">{job.location}</span>
+                            <h4 className="text-xl font-bold text-white mb-2">{job.title}</h4>
+                            <p className="text-white/80 mb-2">{job.company}</p>
+                            <div className="flex items-center text-white/70">
+                              <MapPin className="h-4 w-4 mr-2" />
+                              <span className="text-sm">{job.location}</span>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 md:py-12">
-                    <Briefcase className="h-12 w-12 md:h-16 md:w-16 text-gray-300 mx-auto mb-3 md:mb-4" />
-                    <p className="text-gray-500 text-base md:text-lg">No work experience available</p>
+                  <div className="text-center py-12">
+                    <Briefcase className="h-16 w-16 text-white/30 mx-auto mb-4" />
+                    <p className="text-white/70 text-lg">No work experience available</p>
                   </div>
                 )}
-              </div>
+              </motion.div>
 
-              {/* Languages & Professional Info */}
-              <div className="space-y-6 md:space-y-8">
+              <div className="space-y-8">
                 {/* Languages */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-                  <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                    <Languages className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+                >
+                  <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                    <Languages className="h-6 w-6 mr-3" />
                     Languages
                   </h3>
                   {userData.languages && userData.languages.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 md:gap-3">
+                    <div className="flex flex-wrap gap-3">
                       {userData.languages.map((language, index) => (
-                        <span 
+                        <motion.span 
                           key={index} 
-                          className="bg-purple-500 text-white px-3 py-1 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium shadow-sm"
+                          whileHover={{ scale: 1.05 }}
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-5 py-3 rounded-full text-sm font-semibold shadow-lg"
                         >
                           {language}
-                        </span>
+                        </motion.span>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-6 md:py-8">
-                      <Languages className="h-8 w-8 md:h-12 md:w-12 text-gray-300 mx-auto mb-2 md:mb-3" />
-                      <p className="text-gray-500 text-sm md:text-base">No languages listed</p>
+                    <div className="text-center py-8">
+                      <Languages className="h-12 w-12 text-white/30 mx-auto mb-3" />
+                      <p className="text-white/70">No languages listed</p>
                     </div>
                   )}
-                </div>
+                </motion.div>
 
                 {/* Professional Info */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg border border-gray-200/50">
-                  <h3 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-                    <CircleDollarSign className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20"
+                >
+                  <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+                    <CircleDollarSign className="h-6 w-6 mr-3" />
                     Professional Details
                   </h3>
-                  <div className="space-y-3 md:space-y-4">
+                  <div className="space-y-4">
                     {personalInfo.filter(info => info.category === 'professional').map((info, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 md:p-4 bg-gray-50 rounded-lg md:rounded-xl border border-gray-200/50">
+                      <motion.div 
+                        key={index} 
+                        whileHover={{ scale: 1.02 }}
+                        className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/20"
+                      >
                         <div className="flex items-center">
                           {info.icon}
-                          <span className="text-gray-700 font-medium ml-2 md:ml-3 text-sm md:text-base">{info.label}</span>
+                          <span className="text-white font-semibold ml-3">{info.label}</span>
                         </div>
-                        <span className="text-gray-800 font-semibold text-sm md:text-base">{info.value}</span>
-                      </div>
+                        <span className="text-white font-bold">{info.value}</span>
+                      </motion.div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               </div>
             </div>
           )}

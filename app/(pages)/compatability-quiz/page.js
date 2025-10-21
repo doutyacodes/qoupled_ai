@@ -531,28 +531,12 @@ const EnhancedCompatibilityQuiz = () => {
               
               {/* Action footer */}
               <div className="px-6 py-5 bg-gray-50 border-t border-gray-100 flex justify-between">
-                <button
-                  onClick={() => {
-                    if (currentQuestionIndex > 0) {
-                      setCurrentQuestionIndex(currentQuestionIndex - 1);
-                      setSelectedChoice(null);
-                    }
-                  }}
-                  disabled={currentQuestionIndex === 0}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
-                    currentQuestionIndex === 0 
-                      ? 'text-gray-300 cursor-not-allowed' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <ChevronLeft className="mr-1 h-5 w-5" />
-                  <span>Previous</span>
-                </button>
+                
                 
                 <button
                   onClick={handleNext}
                   disabled={!selectedChoice}
-                  className={`flex items-center px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                  className={` ml-auto flex items-center px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
                     selectedChoice 
                       ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg transform hover:-translate-y-0.5' 
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'

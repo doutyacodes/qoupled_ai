@@ -1,6 +1,17 @@
 import { db } from "@/utils";
-import { USER } from "@/utils/schema";
-import { eq } from "drizzle-orm/expressions";
+import { 
+  USER, 
+  USER_LANGUAGES, 
+  LANGUAGES, 
+  USER_EDUCATION, 
+  EDUCATION_LEVELS, 
+  USER_JOB, 
+  JOB_TITLES, 
+  USER_PREFERENCE_VALUES, 
+  PREFERENCE_CATEGORIES, 
+  PREFERENCE_OPTIONS 
+} from "@/utils/schema";
+import { eq, and } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
@@ -12,6 +23,7 @@ export async function POST(req) {
       password, 
       birthDate, 
       gender,
+      lookingFor,
       phone,
       email,
       country,
@@ -21,18 +33,35 @@ export async function POST(req) {
       caste,
       height,
       weight,
-      income
+      income,
+      educationLevel,
+      occupation,
+      company,
+      bio,
+      languages,
+      profileImageUrl
     } = data;
 
-    // Validate required fields
+    // ====================================
+    // VALIDATE REQUIRED FIELDS
+    // ====================================
     if (!username || !password || !birthDate || !gender) {
       return NextResponse.json(
-        { message: "Username, password, birth date, and gender are required" },
+        { message: "Username, password, birth date, and gender are required", success: false },
         { status: 400 }
       );
     }
 
-    // Check if the user already exists
+    if (!lookingFor) {
+      return NextResponse.json(
+        { message: "Please specify who you're looking for", success: false },
+        { status: 400 }
+      );
+    }
+
+    // ====================================
+    // CHECK EXISTING USER
+    // ====================================
     const [existingUser] = await db
       .select()
       .from(USER)
@@ -40,7 +69,7 @@ export async function POST(req) {
 
     if (existingUser) {
       return NextResponse.json(
-        { message: "Username already exists. Please choose a different username." },
+        { message: "Username already exists. Please choose a different username.", success: false },
         { status: 400 }
       );
     }
@@ -54,13 +83,15 @@ export async function POST(req) {
 
       if (existingEmail) {
         return NextResponse.json(
-          { message: "Email already registered. Please use a different email." },
+          { message: "Email already registered. Please use a different email.", success: false },
           { status: 400 }
         );
       }
     }
 
-    // Validate age (must be 18+)
+    // ====================================
+    // VALIDATE AGE (18+)
+    // ====================================
     const birthDateObj = new Date(birthDate);
     const today = new Date();
     const age = today.getFullYear() - birthDateObj.getFullYear();
@@ -69,47 +100,80 @@ export async function POST(req) {
     if (age < 18 || (age === 18 && monthDiff < 0) || 
         (age === 18 && monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
       return NextResponse.json(
-        { message: "You must be at least 18 years old to register" },
+        { message: "You must be at least 18 years old to register", success: false },
         { status: 400 }
       );
     }
 
-    // Validate email format (if provided)
+    // ====================================
+    // VALIDATE EMAIL & PHONE FORMATS
+    // ====================================
     if (email && !/\S+@\S+\.\S+/.test(email)) {
       return NextResponse.json(
-        { message: "Please enter a valid email address" },
+        { message: "Please enter a valid email address", success: false },
         { status: 400 }
       );
     }
 
-    // Validate phone format (if provided)
     if (phone && !/^\+?[\d\s-()]{10,}$/.test(phone)) {
       return NextResponse.json(
-        { message: "Please enter a valid phone number" },
+        { message: "Please enter a valid phone number", success: false },
         { status: 400 }
       );
     }
 
-    // Validate height and weight (if provided)
+    // ====================================
+    // VALIDATE HEIGHT & WEIGHT
+    // ====================================
     if (height && (isNaN(height) || height < 50 || height > 300)) {
       return NextResponse.json(
-        { message: "Please enter a valid height between 50-300 cm" },
+        { message: "Please enter a valid height between 50-300 cm", success: false },
         { status: 400 }
       );
     }
 
     if (weight && (isNaN(weight) || weight < 20 || weight > 300)) {
       return NextResponse.json(
-        { message: "Please enter a valid weight between 20-300 kg" },
+        { message: "Please enter a valid weight between 20-300 kg", success: false },
+        { status: 400 }
+      );
+    }
+
+    // ====================================
+    // VALIDATE BIO LENGTH
+    // ====================================
+    if (bio && bio.length < 20) {
+      return NextResponse.json(
+        { message: "Bio must be at least 20 characters", success: false },
+        { status: 400 }
+      );
+    }
+
+    if (bio && bio.length > 500) {
+      return NextResponse.json(
+        { message: "Bio cannot exceed 500 characters", success: false },
+        { status: 400 }
+      );
+    }
+
+    // ====================================
+    // VALIDATE LOOKING FOR
+    // ====================================
+    const validLookingForValues = ['Male', 'Female', 'Both', 'Any'];
+    if (!validLookingForValues.includes(lookingFor)) {
+      return NextResponse.json(
+        { message: "Invalid lookingFor value. Must be Male, Female, Both, or Any", success: false },
         { status: 400 }
       );
     }
 
     try {
-      // Prepare user data for insertion
+      // ====================================
+      // PREPARE USER DATA
+      // ====================================
       const userData = {
         username: username.trim(),
-        password: password, // Should be encrypted before this point
+        password: password, // Already encrypted from frontend
         birthDate: birthDateObj,
         gender: gender,
         phone: phone?.trim() || null,
@@ -122,7 +186,10 @@ export async function POST(req) {
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
         income: income?.trim() || null,
-        // Set default values for other fields
+        profileImageUrl: profileImageUrl || null,
+        // bio: bio?.trim() || null, // Uncomment after adding bio column to schema
+        
+        // Set default values for subscription fields
         currentPlan: 'free',
         isVerified: false,
         profileBoostActive: false,
@@ -130,17 +197,23 @@ export async function POST(req) {
         isPhoneVerified: false,
         isEmailVerified: false,
         isProfileVerified: false,
-        isProfileComplete: true // Mark as complete since we collected all basic info
+        isProfileComplete: true
       };
 
-      // Insert user into the database
-      const result = await db.insert(USER).values(userData);
+      // ====================================
+      // INSERT USER INTO DATABASE
+      // ====================================
+      const [result] = await db.insert(USER).values(userData);
 
-      if (!result) {
+      if (!result || !result.insertId) {
         throw new Error("User registration failed");
       }
 
-      // Fetch the newly created user
+      const userId = result.insertId;
+
+      // ====================================
+      // FETCH NEWLY CREATED USER
+      // ====================================
       const [newUser] = await db
         .select({
           id: USER.id,
@@ -156,26 +229,190 @@ export async function POST(req) {
           isProfileComplete: USER.isProfileComplete
         })
         .from(USER)
-        .where(eq(USER.username, username));
+        .where(eq(USER.id, userId));
 
       if (!newUser) {
         throw new Error("User not found after registration");
       }
 
-      // Generate JWT token
+      // ====================================
+      // STORE LOOKING FOR PREFERENCE
+      // ====================================
+      try {
+        // Find or create "looking_for" category
+        let lookingForCategory = await db
+          .select()
+          .from(PREFERENCE_CATEGORIES)
+          .where(eq(PREFERENCE_CATEGORIES.name, 'looking_for'))
+          .limit(1);
+
+        if (!lookingForCategory || lookingForCategory.length === 0) {
+          // Create the category if it doesn't exist
+          const [newCategory] = await db
+            .insert(PREFERENCE_CATEGORIES)
+            .values({
+              name: 'looking_for',
+              displayName: 'Looking For',
+              categoryType: 'single',
+              isActive: true
+            });
+          
+          lookingForCategory = [{ id: newCategory.insertId }];
+        }
+
+        const categoryId = lookingForCategory[0].id;
+
+        // Find or create the option
+        let lookingForOption = await db
+          .select()
+          .from(PREFERENCE_OPTIONS)
+          .where(
+            and(
+              eq(PREFERENCE_OPTIONS.categoryId, categoryId),
+              eq(PREFERENCE_OPTIONS.value, lookingFor)
+            )
+          )
+          .limit(1);
+
+        if (!lookingForOption || lookingForOption.length === 0) {
+          const [newOption] = await db
+            .insert(PREFERENCE_OPTIONS)
+            .values({
+              categoryId: categoryId,
+              value: lookingFor,
+              displayValue: lookingFor,
+              isActive: true
+            });
+          
+          lookingForOption = [{ id: newOption.insertId }];
+        }
+
+        // Store user's preference
+        await db.insert(USER_PREFERENCE_VALUES).values({
+          userId: userId,
+          categoryId: categoryId,
+          optionId: lookingForOption[0].id,
+          importance: 'must_have'
+        });
+      } catch (prefError) {
+        console.error("Error storing looking_for preference:", prefError);
+        // Don't fail the entire signup if preference storage fails
+      }
+
+      // ====================================
+      // STORE EDUCATION (if provided)
+      // ====================================
+      if (educationLevel) {
+        try {
+          // Find or create education level
+          let eduLevel = await db
+            .select()
+            .from(EDUCATION_LEVELS)
+            .where(eq(EDUCATION_LEVELS.levelName, educationLevel))
+            .limit(1);
+
+          if (!eduLevel || eduLevel.length === 0) {
+            const [newEduLevel] = await db
+              .insert(EDUCATION_LEVELS)
+              .values({ levelName: educationLevel });
+            
+            eduLevel = [{ id: newEduLevel.insertId }];
+          }
+
+          // Insert user education
+          await db.insert(USER_EDUCATION).values({
+            user_id: userId,
+            education_level_id: eduLevel[0].id,
+            degree: educationLevel,
+            graduationYear: null
+          });
+        } catch (eduError) {
+          console.error("Error storing education:", eduError);
+        }
+      }
+
+      // ====================================
+      // STORE JOB (if provided)
+      // ====================================
+      if (occupation) {
+        try {
+          // Find or create job title
+          let jobTitle = await db
+            .select()
+            .from(JOB_TITLES)
+            .where(eq(JOB_TITLES.title, occupation))
+            .limit(1);
+
+          if (!jobTitle || jobTitle.length === 0) {
+            const [newJobTitle] = await db
+              .insert(JOB_TITLES)
+              .values({ title: occupation });
+            
+            jobTitle = [{ id: newJobTitle.insertId }];
+          }
+
+          // Insert user job
+          await db.insert(USER_JOB).values({
+            user_id: userId,
+            job_title_id: jobTitle[0].id,
+            company: company?.trim() || null,
+            location: [city, state, country].filter(Boolean).join(', ') || null
+          });
+        } catch (jobError) {
+          console.error("Error storing job:", jobError);
+        }
+      }
+
+      // ====================================
+      // STORE LANGUAGES (if provided)
+      // ====================================
+      if (languages && Array.isArray(languages) && languages.length > 0) {
+        try {
+          for (const langName of languages) {
+            // Find or create language
+            let language = await db
+              .select()
+              .from(LANGUAGES)
+              .where(eq(LANGUAGES.title, langName))
+              .limit(1);
+
+            if (!language || language.length === 0) {
+              const [newLang] = await db
+                .insert(LANGUAGES)
+                .values({ title: langName });
+              
+              language = [{ id: newLang.insertId }];
+            }
+
+            // Insert user language
+            await db.insert(USER_LANGUAGES).values({
+              user_id: userId,
+              language_id: language[0].id
+            });
+          }
+        } catch (langError) {
+          console.error("Error storing languages:", langError);
+        }
+      }
+
+      // ====================================
+      // GENERATE JWT TOKEN
+      // ====================================
       const token = jwt.sign(
         { 
           userId: newUser.id,
           username: newUser.username 
         }, 
         process.env.JWT_SECRET_KEY,
-        { expiresIn: '30d' } // Token expires in 30 days
+        { expiresIn: '30d' }
       );
 
       // Calculate age for response
       const userAge = today.getFullYear() - birthDateObj.getFullYear();
 
-      // Prepare response data (exclude sensitive information)
+      // ====================================
+      // PREPARE RESPONSE DATA
+      // ====================================
       const responseUser = {
         id: newUser.id,
         username: newUser.username,
@@ -185,7 +422,11 @@ export async function POST(req) {
         phone: newUser.phone,
         location: [newUser.city, newUser.state, newUser.country].filter(Boolean).join(', '),
         currentPlan: newUser.currentPlan,
-        isProfileComplete: newUser.isProfileComplete
+        isProfileComplete: newUser.isProfileComplete,
+        lookingFor: lookingFor,
+        hasEducation: !!educationLevel,
+        hasJob: !!occupation,
+        languageCount: languages?.length || 0
       };
 
       return NextResponse.json(
@@ -202,7 +443,13 @@ export async function POST(req) {
 
     } catch (transactionError) {
       console.error("Database transaction error:", transactionError);
-      throw transactionError;
+      return NextResponse.json(
+        { 
+          message: "Database error occurred during registration. Please try again.",
+          success: false 
+        },
+        { status: 500 }
+      );
     }
 
   } catch (error) {
@@ -229,12 +476,23 @@ export async function POST(req) {
   }
 }
 
-// Health check endpoint
+// ====================================
+// HEALTH CHECK ENDPOINT
+// ====================================
 export async function GET(req) {
   return NextResponse.json(
     {
-      message: "Signup API is working",
+      message: "Enhanced Signup API is working",
       timestamp: new Date().toISOString(),
+      version: "2.0",
+      features: [
+        "lookingFor preference",
+        "education tracking",
+        "job/occupation tracking", 
+        "multi-language support",
+        "profile image upload",
+        "bio support (requires schema update)"
+      ],
       success: true
     },
     { status: 200 }

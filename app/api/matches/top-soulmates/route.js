@@ -11,10 +11,13 @@ import {
   EDUCATION_LEVELS,
   USER_JOB,
   JOB_TITLES,
-  QUIZ_SEQUENCES
+  QUIZ_SEQUENCES,
+  USER_PREFERENCE_VALUES,
+  PREFERENCE_CATEGORIES,
+  PREFERENCE_OPTIONS
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
-import { and, eq, ne, inArray, notInArray, isNotNull } from 'drizzle-orm';
+import { and, eq, ne, inArray, notInArray, isNotNull, or } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
 
 // MBTI compatibility matrix for personality-based matching
@@ -36,6 +39,46 @@ const MBTI_COMPATIBILITY = {
   'ESTP': ['ISFJ', 'ISTJ', 'ESFP', 'ISTP'],
   'ESFP': ['ISTJ', 'ISFJ', 'ESTP', 'ISFP']
 };
+
+// Helper function to get user's lookingFor preference
+async function getUserLookingFor(userId) {
+  try {
+    // Find the looking_for category
+    const [category] = await db
+      .select({ id: PREFERENCE_CATEGORIES.id })
+      .from(PREFERENCE_CATEGORIES)
+      .where(eq(PREFERENCE_CATEGORIES.name, 'looking_for'))
+      .limit(1);
+
+    if (!category) return 'Any';
+
+    // Get user's preference
+    const [preference] = await db
+      .select({
+        value: PREFERENCE_OPTIONS.value
+      })
+      .from(USER_PREFERENCE_VALUES)
+      .leftJoin(PREFERENCE_OPTIONS, eq(USER_PREFERENCE_VALUES.optionId, PREFERENCE_OPTIONS.id))
+      .where(
+        and(
+          eq(USER_PREFERENCE_VALUES.userId, userId),
+          eq(USER_PREFERENCE_VALUES.categoryId, category.id)
+        )
+      )
+      .limit(1);
+
+    return preference?.value || 'Any';
+  } catch (error) {
+    console.error('Error fetching lookingFor preference:', error);
+    return 'Any';
+  }
+}
+
+// Helper function to check if user matches the lookingFor criteria
+function matchesLookingForCriteria(userGender, lookingFor) {
+  if (lookingFor === 'Any' || lookingFor === 'Both') return true;
+  return userGender === lookingFor;
+}
 
 // Helper function to fetch user's quiz answers
 async function fetchUserAnswers(userId, testId = 2) {
@@ -85,7 +128,6 @@ async function fetchAnswerInfo(answerIds) {
 
 // Calculate compatibility score between two users
 function calculateCompatibilityScore(user1Answers, user2Answers, user1RedFlags, user2RedFlags, answerInfo) {
-  // Create answer details map
   const answerDetails = {};
   answerInfo.forEach(info => {
     answerDetails[info.answerId] = {
@@ -95,10 +137,9 @@ function calculateCompatibilityScore(user1Answers, user2Answers, user1RedFlags, 
     };
   });
 
-  // Check for red flag incompatibilities
   const hasRedFlags = [];
   
-  // Check if user2 selected any answers that user1 flagged
+  // Check red flag incompatibilities
   for (const redFlag of user1RedFlags) {
     const user2SelectedThisAnswer = user2Answers.some(answer => 
       answer.selectedAnswerId === redFlag.answerId
@@ -116,7 +157,6 @@ function calculateCompatibilityScore(user1Answers, user2Answers, user1RedFlags, 
     }
   }
   
-  // Check if user1 selected any answers that user2 flagged
   for (const redFlag of user2RedFlags) {
     const user1SelectedThisAnswer = user1Answers.some(answer => 
       answer.selectedAnswerId === redFlag.answerId
@@ -134,16 +174,14 @@ function calculateCompatibilityScore(user1Answers, user2Answers, user1RedFlags, 
     }
   }
   
-  // If red flags exist, return low compatibility
   if (hasRedFlags.length > 0) {
     return { 
-      compatibilityScore: Math.max(10, 30 - (hasRedFlags.length * 10)), // Penalize but don't make it 0
+      compatibilityScore: Math.max(10, 30 - (hasRedFlags.length * 10)),
       hasRedFlags: true,
       redFlagDetails: hasRedFlags
     };
   }
   
-  // Calculate regular compatibility score
   let totalScore = 0;
   let maxScore = 0;
 
@@ -168,11 +206,9 @@ function calculatePersonalityScore(userMbti, matchMbti) {
   
   if (compatibleTypes.includes(matchMbti)) {
     const index = compatibleTypes.indexOf(matchMbti);
-    // Higher score for better matches (first in array = highest score)
     return Math.max(70, 95 - (index * 5));
   }
   
-  // If not in compatibility list, calculate based on type similarities
   const userFunctions = userMbti.split('');
   const matchFunctions = matchMbti.split('');
   let similarities = 0;
@@ -183,7 +219,6 @@ function calculatePersonalityScore(userMbti, matchMbti) {
     }
   }
   
-  // Base score on similarities
   return Math.max(40, 50 + (similarities * 10));
 }
 
@@ -212,7 +247,7 @@ export async function GET(req) {
   const currentUserId = userData.userId;
 
   try {
-    // Get current user's info including plan
+    // Get current user's info including plan and lookingFor preference
     const currentUserInfo = await db
       .select({
         gender: USER.gender,
@@ -235,6 +270,9 @@ export async function GET(req) {
     const currentUser = currentUserInfo[0];
     let userPlan = currentUser.currentPlan || 'free';
 
+    // Get user's lookingFor preference
+    const userLookingFor = await getUserLookingFor(currentUserId);
+
     // If no plan is set, update to free plan
     if (!currentUser.currentPlan) {
       await db
@@ -245,7 +283,7 @@ export async function GET(req) {
       userPlan = 'free';
     }
 
-    // Check if user completed compatibility test (only for non-free plans)
+    // Check if user completed compatibility test
     let hasCompletedCompatibilityTest = false;
     let useCompatibilityMatching = false;
     let matchingType = 'personality';
@@ -269,7 +307,7 @@ export async function GET(req) {
       .from(QUIZ_SEQUENCES)
       .where(and(
         eq(QUIZ_SEQUENCES.user_id, currentUserId),
-        eq(QUIZ_SEQUENCES.quiz_id, 1), // Personality test
+        eq(QUIZ_SEQUENCES.quiz_id, 1),
         eq(QUIZ_SEQUENCES.isCompleted, true)
       ))
       .limit(1)
@@ -299,12 +337,21 @@ export async function GET(req) {
 
     let potentialMatches = [];
 
+    // Build gender filter based on lookingFor preference
+    let genderConditions;
+    if (userLookingFor === 'Any' || userLookingFor === 'Both') {
+      genderConditions = ne(USER.gender, currentUser.gender); // Just avoid same gender
+    } else {
+      genderConditions = eq(USER.gender, userLookingFor);
+    }
+
     if (useCompatibilityMatching) {
-      // Use compatibility-based matching for premium users who completed the test
+      // ========================================
+      // COMPATIBILITY-BASED MATCHING (Premium)
+      // ========================================
       const currentUserAnswers = await fetchUserAnswers(currentUserId, 2);
       const currentUserRedFlags = await fetchUserRedFlags(currentUserId);
 
-      // Get users who completed compatibility test
       potentialMatches = await db
         .select({
           id: USER.id,
@@ -327,8 +374,8 @@ export async function GET(req) {
         .where(
           and(
             ne(USER.id, currentUserId),
-            eq(TEST_PROGRESS.test_id, 2), // Compatibility test
-            ne(USER.gender, currentUser.gender),
+            eq(TEST_PROGRESS.test_id, 2),
+            genderConditions, // Use lookingFor filter
             isNotNull(USER.username),
             isNotNull(USER.birthDate)
           )
@@ -336,9 +383,20 @@ export async function GET(req) {
         .groupBy(USER.id)
         .execute();
 
+      // Filter by mutual lookingFor preference
+      const filteredByPreference = [];
+      for (const match of potentialMatches) {
+        const matchLookingFor = await getUserLookingFor(match.id);
+        
+        // Check if current user matches what the potential match is looking for
+        if (matchesLookingForCriteria(currentUser.gender, matchLookingFor)) {
+          filteredByPreference.push(match);
+        }
+      }
+
       // Calculate compatibility scores
       const matchesWithScores = [];
-      for (const potentialMatch of potentialMatches) {
+      for (const potentialMatch of filteredByPreference) {
         const userAge = calculateAge(potentialMatch.birthDate);
         if (userAge < minAge || userAge > maxAge) continue;
 
@@ -440,8 +498,9 @@ export async function GET(req) {
         .slice(0, 10);
 
     } else {
-      // Use personality-based matching (MBTI) for free users or premium users without compatibility test
-      // Get users with completed personality tests
+      // ========================================
+      // PERSONALITY-BASED MATCHING (Free/MBTI)
+      // ========================================
       potentialMatches = await db
         .select({
           id: USER.id,
@@ -465,17 +524,28 @@ export async function GET(req) {
         .where(
           and(
             ne(USER.id, currentUserId),
-            eq(QUIZ_SEQUENCES.quiz_id, 1), // Personality test
+            eq(QUIZ_SEQUENCES.quiz_id, 1),
             eq(QUIZ_SEQUENCES.isCompleted, true),
-            ne(USER.gender, currentUser.gender),
+            genderConditions, // Use lookingFor filter
             isNotNull(USER.username),
             isNotNull(USER.birthDate)
           )
         )
         .execute();
 
+      // Filter by mutual lookingFor preference
+      const filteredByPreference = [];
+      for (const match of potentialMatches) {
+        const matchLookingFor = await getUserLookingFor(match.id);
+        
+        // Check if current user matches what the potential match is looking for
+        if (matchesLookingForCriteria(currentUser.gender, matchLookingFor)) {
+          filteredByPreference.push(match);
+        }
+      }
+
       // Calculate personality scores and filter by age
-      const matchesWithScores = potentialMatches
+      const matchesWithScores = filteredByPreference
         .map(match => {
           const userAge = calculateAge(match.birthDate);
           if (userAge < minAge || userAge > maxAge) return null;
@@ -489,7 +559,7 @@ export async function GET(req) {
             ...match,
             age: userAge,
             personalityScore,
-            hasRedFlags: false, // No red flag checking for personality matching
+            hasRedFlags: false,
             redFlagDetails: [],
             matchQuality: personalityScore >= 80 ? 'exceptional' : 
                          personalityScore >= 60 ? 'great' : 'good'
@@ -544,6 +614,7 @@ export async function GET(req) {
       userPlan,
       hasCompletedCompatibilityTest,
       matchingType,
+      userLookingFor,
       totalPotentialMatches: potentialMatches.length
     }, { status: 200 });
 
@@ -552,6 +623,7 @@ export async function GET(req) {
     return NextResponse.json({
       success: false,
       message: 'Error fetching matches',
+      error: error.message,
       matches: [],
       userPlan: 'free',
       hasCompletedCompatibilityTest: false,
