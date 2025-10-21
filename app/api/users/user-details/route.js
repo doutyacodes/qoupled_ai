@@ -1,7 +1,9 @@
+// app/api/users/user-details/route.js
 import { db } from '@/utils';
 import { LANGUAGES, EDUCATION_LEVELS, JOB_TITLES } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { authenticate } from '@/lib/jwtMiddleware';
+import { asc } from 'drizzle-orm';
 
 export async function GET(req) {
   // Authenticate user
@@ -11,29 +13,50 @@ export async function GET(req) {
   }
 
   try {
-    // Fetch all available languages, education levels, and job titles
-    const languages = await db
-      .select()
+    // Fetch all available languages
+    const languagesResult = await db
+      .select({
+        id: LANGUAGES.id,
+        title: LANGUAGES.title,
+        name: LANGUAGES.title // Add name field to match frontend expectations
+      })
       .from(LANGUAGES)
-      .orderBy(LANGUAGES.title);
+      .orderBy(asc(LANGUAGES.title));
 
-    const educationLevels = await db
-      .select()
+    // Fetch all available education levels
+    const educationLevelsResult = await db
+      .select({
+        id: EDUCATION_LEVELS.id,
+        levelName: EDUCATION_LEVELS.levelName
+      })
       .from(EDUCATION_LEVELS)
-      .orderBy(EDUCATION_LEVELS.levelName);
+      .orderBy(asc(EDUCATION_LEVELS.levelName));
 
-    const jobTitles = await db
-      .select()
+    // Fetch all available job titles
+    const jobTitlesResult = await db
+      .select({
+        id: JOB_TITLES.id,
+        title: JOB_TITLES.title
+      })
       .from(JOB_TITLES)
-      .orderBy(JOB_TITLES.title);
+      .orderBy(asc(JOB_TITLES.title));
 
     return NextResponse.json({
-      languages,
-      educationLevels,
-      jobTitles
+      success: true,
+      languages: languagesResult || [],
+      educationLevels: educationLevelsResult || [],
+      jobTitles: jobTitlesResult || []
     }, { status: 200 });
+
   } catch (error) {
     console.error("Error fetching common data:", error);
-    return NextResponse.json({ message: 'Error fetching common data' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false,
+      message: 'Error fetching common data',
+      error: error.message,
+      languages: [],
+      educationLevels: [],
+      jobTitles: []
+    }, { status: 500 });
   }
 }
