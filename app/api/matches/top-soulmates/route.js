@@ -298,6 +298,7 @@ export async function GET(req) {
       }
     }
 
+    console.log("useCompatibilityMatching",useCompatibilityMatching)
     // Get user's MBTI type for personality-based matching
     let userMbtiType = null;
     const userMbti = await db
@@ -346,6 +347,7 @@ export async function GET(req) {
     }
 
     if (useCompatibilityMatching) {
+      console.log("inthe compatibuility score get")
       // ========================================
       // COMPATIBILITY-BASED MATCHING (Premium)
       // ========================================

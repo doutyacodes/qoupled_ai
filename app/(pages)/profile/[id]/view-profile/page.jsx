@@ -63,28 +63,74 @@ export default function ModernUserProfile() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
+  const [compatibilityScore, setCompatibilityScore] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [loadingConnection, setLoadingConnection] = useState(false);
+
+  const [showCompatibilityAlert, setShowCompatibilityAlert] = useState(false);
+  const [compatibilityAlertMessage, setCompatibilityAlertMessage] = useState('');
+
   const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
 
   useEffect(() => {
     async function fetchUserData() {
       try {
         const token = localStorage.getItem("token");
+        
+        // Fetch user data
         const response = await fetch(`/api/users/${userId}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
+        
         if (!response.ok) {
           throw new Error('Failed to fetch user data');
         }
+        
         const data = await response.json();
         setUserData(data.user);
         
         // Check if bookmarked
         const bookmarks = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
         setIsBookmarked(bookmarks.includes(parseInt(userId)));
+        
+        // Fetch compatibility score
+        const compatResponse = await fetch(`/api/users/${userId}/compatibility`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (compatResponse.ok) {
+          const compatData = await compatResponse.json();
+          if (compatData.hasCompatibility) {
+            setCompatibilityScore(compatData.score);
+          } else {
+            // Store the message for showing in UI
+            setCompatibilityScore(compatData);
+          }
+        }
+        
+        // Fetch connection status
+        const connResponse = await fetch(`/api/connections/connect-status/${userId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (connResponse.ok) {
+          const connData = await connResponse.json();
+          if (connData.hasConnection) {
+            setConnectionStatus(connData);
+          }
+        }
         
         setLoading(false);
       } catch (err) {
@@ -109,6 +155,58 @@ export default function ModernUserProfile() {
       localStorage.setItem('savedProfiles', JSON.stringify(bookmarks));
     }
     setIsBookmarked(!isBookmarked);
+  };
+
+  const handleSendConnectionRequest = async () => {
+    setLoadingConnection(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch('/api/connections/send-request', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiverId: parseInt(userId),
+          connectionType: 'regular',
+          isPremiumConnection: false
+        })
+      });
+      
+      if (response.ok) {
+        // Update connection status
+        setConnectionStatus({
+          hasConnection: true,
+          status: 'pending',
+          isCurrentUserSender: true
+        });
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to send connection request');
+      }
+    } catch (error) {
+      console.error('Error sending connection request:', error);
+      alert('Failed to send connection request');
+    } finally {
+      setLoadingConnection(false);
+    }
+  };
+
+  const handleCompatibilityCheck = (e) => {
+    if (compatibilityScore && typeof compatibilityScore !== 'number') {
+      e.preventDefault();
+      
+      if (!compatibilityScore.targetUserCompletedTest) {
+        setCompatibilityAlertMessage('This user has not completed the compatibility test yet. Compatibility score cannot be calculated.');
+      } else if (!compatibilityScore.currentUserCompletedTest) {
+        setCompatibilityAlertMessage('You need to complete the compatibility test first before checking compatibility with other users.');
+      } else {
+        setCompatibilityAlertMessage('Compatibility has not been calculated yet. Please try checking compatibility.');
+      }
+      
+      setShowCompatibilityAlert(true);
+    }
   };
 
   if (loading) {
@@ -188,8 +286,19 @@ export default function ModernUserProfile() {
 
   // Profile stats
   const profileStats = [
-    { label: "Match Score", value: "92%", icon: <Star className="h-5 w-5" /> },
-    { label: "Compatibility", value: "87%", icon: <Heart className="h-5 w-5" /> },
+    // { label: "Match Score", value: "92%", icon: <Star className="h-5 w-5" /> },
+    { 
+      label: "Compatibility", 
+      value: compatibilityScore && typeof compatibilityScore === 'number' 
+        ? `${compatibilityScore}%` 
+        : compatibilityScore?.targetUserCompletedTest === false 
+          ? "Not Taken" 
+          : compatibilityScore?.currentUserCompletedTest === false
+            ? "Take Test"
+            : "N/A", 
+      icon: <Heart className="h-5 w-5" />,
+      alert: compatibilityScore && typeof compatibilityScore !== 'number'
+    },
     { label: "Profile Views", value: "1.2k", icon: <User className="h-5 w-5" /> }
   ];
 
@@ -260,6 +369,42 @@ export default function ModernUserProfile() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600">
+      {/* Compatibility Alert Modal */}
+      {showCompatibilityAlert && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowCompatibilityAlert(false)}
+        >
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="bg-rose-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <Heart className="h-8 w-8 text-rose-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                Compatibility Test Required
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {compatibilityAlertMessage}
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowCompatibilityAlert(false)}
+                className="w-full bg-gradient-to-r from-rose-500 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:from-rose-600 hover:to-pink-700 transition-all"
+              >
+                Got It
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header Navigation */}
         <motion.div 
@@ -347,7 +492,11 @@ export default function ModernUserProfile() {
                     <motion.div 
                       key={index} 
                       whileHover={{ scale: 1.05 }}
-                      className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/30"
+                      className={`backdrop-blur-sm rounded-2xl p-4 text-center border ${
+                        stat.alert 
+                          ? 'bg-orange-500/20 border-orange-400/30' 
+                          : 'bg-white/20 border-white/30'
+                      }`}
                     >
                       <div className="flex items-center justify-center mb-2 text-white">
                         {stat.icon}
@@ -377,22 +526,55 @@ export default function ModernUserProfile() {
                   ))}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link 
-                    href={`/compatibility-check?userId=${encodeURIComponent(encryptText(`${userId}`))}`}
-                    className="flex-1"
-                  >
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+
+                {compatibilityScore && typeof compatibilityScore !== 'number' && !compatibilityScore.targetUserCompletedTest ? (
                     <motion.button 
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full flex items-center justify-center bg-white text-rose-600 px-6 py-4 rounded-xl font-bold transition-colors shadow-lg hover:bg-gray-100"
+                      onClick={handleCompatibilityCheck}
+                      className="flex-1 flex items-center justify-center bg-white text-rose-600 px-6 py-4 rounded-xl font-bold transition-colors shadow-lg hover:bg-gray-100"
                     >
                       <Heart className="h-5 w-5 mr-2" />
                       Check Compatibility
                     </motion.button>
-                  </Link>
-                  
+                  ) : (
+                    <Link 
+                      href={`/compatibility-check?userId=${encodeURIComponent(encryptText(`${userId}`))}`}
+                      className="flex-1"
+                      onClick={handleCompatibilityCheck}
+                    >
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full flex items-center justify-center bg-white text-rose-600 px-6 py-4 rounded-xl font-bold transition-colors shadow-lg hover:bg-gray-100"
+                      >
+                        <Heart className="h-5 w-5 mr-2" />
+                        Check Compatibility
+                      </motion.button>
+                    </Link>
+                  )}
+                {/* Dynamic Connection/Message Button */}
+                {!connectionStatus ? (
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSendConnectionRequest}
+                    disabled={loadingConnection}
+                    className="flex-1 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-4 rounded-xl font-bold transition-all border border-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <UserPlus className="h-5 w-5 mr-2" />
+                    {loadingConnection ? 'Sending...' : 'Send Connection Request'}
+                  </motion.button>
+                ) : connectionStatus.status === 'pending' ? (
+                  <motion.button 
+                    className="flex-1 flex items-center justify-center bg-yellow-500/20 backdrop-blur-sm text-white px-6 py-4 rounded-xl font-bold border border-yellow-500/30 cursor-default"
+                  >
+                    <Clock className="h-5 w-5 mr-2" />
+                    Request Sent
+                  </motion.button>
+                ) : connectionStatus.status === 'accepted' ? (
                   <motion.button 
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -401,16 +583,8 @@ export default function ModernUserProfile() {
                     <MessageCircle className="h-5 w-5 mr-2" />
                     Send Message
                   </motion.button>
-                  
-                  {/* <motion.button 
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex-1 flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-4 rounded-xl font-bold transition-all border border-white/30"
-                  >
-                    <UserPlus className="h-5 w-5 mr-2" />
-                    Connect
-                  </motion.button> */}
-                </div>
+                ) : null}
+              </div>
               </div>
             </div>
           </div>

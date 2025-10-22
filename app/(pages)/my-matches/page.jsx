@@ -34,6 +34,67 @@ import {
 import Image from 'next/image';
 import { encryptText } from '@/utils/encryption';
 
+// Modal Component for Compatibility Test Prompt
+const CompatibilityTestModal = ({ isOpen, onClose, onTakeTest }) => {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-gradient-to-br from-white/95 to-white/90 backdrop-blur-xl rounded-3xl p-8 max-w-md w-full shadow-2xl border border-white/50"
+      >
+        <div className="text-center">
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+            <Target className="h-10 w-10 text-white" />
+          </div>
+          
+          <h3 className="text-2xl font-bold text-gray-800 mb-3">
+            Complete Compatibility Test
+          </h3>
+          
+          <p className="text-gray-600 mb-6 leading-relaxed">
+            To unlock full access to profile details, filters, and compatibility insights, 
+            please complete our compatibility test. This helps us find your perfect match!
+          </p>
+          
+          <div className="space-y-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onTakeTest}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 px-6 rounded-xl font-semibold flex items-center justify-center shadow-lg hover:shadow-xl transition-all"
+            >
+              <Sparkles className="h-5 w-5 mr-2" />
+              Take Compatibility Test
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </motion.button>
+            {/* 
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onClose}
+              className="w-full bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+            >
+              Maybe Later
+            </motion.button>
+             */}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 export default function ModernMyMatches() {
   const router = useRouter();
   const [matches, setMatches] = useState([]);
@@ -45,6 +106,10 @@ export default function ModernMyMatches() {
   const [userPlan, setUserPlan] = useState('free');
   const [hasCompletedCompatibilityTest, setHasCompletedCompatibilityTest] = useState(false);
   const [matchingType, setMatchingType] = useState('personality'); // 'personality' or 'compatibility'
+
+  const [showCompatibilityModal, setShowCompatibilityModal] = useState(false);
+  const [compatibilityTestCompleted, setCompatibilityTestCompleted] = useState(false);
+  const [checkingQuizStatus, setCheckingQuizStatus] = useState(true);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -131,6 +196,36 @@ export default function ModernMyMatches() {
     fetchMatches();
   }, [token, router]);
 
+  // Check quiz completion status
+  useEffect(() => {
+    const checkQuizStatus = async () => {
+      if (!token) return;
+
+      try {
+        setCheckingQuizStatus(true);
+        const response = await fetch('/api/user/quiz-status', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setCompatibilityTestCompleted(data.compatibilityCompleted);
+        }
+      } catch (err) {
+        console.error('Error checking quiz status:', err);
+      } finally {
+        setCheckingQuizStatus(false);
+      }
+    };
+
+    checkQuizStatus();
+  }, [token]);
+
   // Apply filters
   useEffect(() => {
     let result = [...matches];
@@ -186,6 +281,20 @@ export default function ModernMyMatches() {
     });
   };
 
+  const handleProtectedAction = (action) => {
+    if (!compatibilityTestCompleted) {
+      setShowCompatibilityModal(true);
+      return false;
+    }
+    action();
+    return true;
+  };
+
+  const handleTakeCompatibilityTest = () => {
+    setShowCompatibilityModal(false);
+    router.push('/compatability-quiz');
+  };
+
   const getQualityColor = (quality) => {
     switch (quality) {
       case 'exceptional': return 'from-emerald-500 to-green-600';
@@ -226,26 +335,30 @@ export default function ModernMyMatches() {
       : "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop";
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl max-w-sm w-full"
-        >
-          <div className="flex flex-col items-center">
-            <div className="relative mb-6">
-              <Loader2 className="h-12 w-12 text-white animate-spin" />
-              <Heart className="h-6 w-6 text-white absolute top-3 left-3 animate-pulse" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">Finding Your Perfect Matches</h2>
-            <p className="text-white/80 text-sm text-center">Analyzing compatibility and personality traits...</p>
+if (loading || checkingQuizStatus) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl max-w-sm w-full"
+      >
+        <div className="flex flex-col items-center">
+          <div className="relative mb-6">
+            <Loader2 className="h-12 w-12 text-white animate-spin" />
+            <Heart className="h-6 w-6 text-white absolute top-3 left-3 animate-pulse" />
           </div>
-        </motion.div>
-      </div>
-    );
-  }
+          <h2 className="text-xl font-bold text-white mb-2">
+            {checkingQuizStatus ? 'Checking Your Status' : 'Finding Your Perfect Matches'}
+          </h2>
+          <p className="text-white/80 text-sm text-center">
+            {checkingQuizStatus ? 'Verifying quiz completion...' : 'Analyzing compatibility and personality traits...'}
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
   if (error) {
     return (
@@ -417,7 +530,7 @@ export default function ModernMyMatches() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => handleProtectedAction(() => setShowFilters(!showFilters))}
               className="flex items-center bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg"
             >
               <Filter className="h-5 w-5 mr-2" />
@@ -569,7 +682,7 @@ export default function ModernMyMatches() {
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => toggleSaveProfile(match.id)}
+                        onClick={() => handleProtectedAction(() => toggleSaveProfile(match.id))}
                         className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
                       >
                         {savedProfiles.includes(match.id) ? (
@@ -588,16 +701,18 @@ export default function ModernMyMatches() {
                               <span>{match.age} years old</span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2">
-                              <div className="flex items-center text-white">
-                                <Sparkles className="h-4 w-4 mr-1" />
-                                <span className="font-bold">
-                                  {match.compatibilityScore || match.personalityScore}%
-                                </span>
+                          {match.compatibilityScore && (
+                            <div className="text-right">
+                              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2">
+                                <div className="flex items-center text-white">
+                                  <Sparkles className="h-4 w-4 mr-1" />
+                                  <span className="font-bold">
+                                    {match.compatibilityScore}%
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -651,7 +766,7 @@ export default function ModernMyMatches() {
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => router.push(`/profile/${match.id}/view-profile`)}
+                        onClick={() => handleProtectedAction(() => router.push(`/profile/${match.id}/view-profile`))}
                         className="flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white py-3 px-4 rounded-xl font-medium transition-all border border-white/30"
                       >
                         <Eye className="h-4 w-4 mr-2" />
@@ -662,7 +777,7 @@ export default function ModernMyMatches() {
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => router.push(`/compatibility-check?userId=${encodeURIComponent(encryptText(String(match.id)))}`)}
+                        onClick={() => handleProtectedAction(() => router.push(`/compatibility-check?userId=${encodeURIComponent(encryptText(String(match.id)))}`))}
                         className="flex items-center justify-center bg-white text-purple-600 hover:bg-gray-100 py-3 px-4 rounded-xl font-medium transition-all shadow-lg"
                       >
                         <Heart className="h-4 w-4 mr-2" />
@@ -713,6 +828,17 @@ export default function ModernMyMatches() {
           )}
         </AnimatePresence>
       </div>
+
+    {/* Compatibility Test Modal */}
+    <AnimatePresence>
+      {showCompatibilityModal && (
+        <CompatibilityTestModal
+          isOpen={showCompatibilityModal}
+          onClose={() => setShowCompatibilityModal(false)}
+          onTakeTest={handleTakeCompatibilityTest}
+        />
+      )}
+    </AnimatePresence>
     </div>
   );
 }

@@ -249,6 +249,51 @@ const ModernSignup = () => {
         newErrors.lookingFor = "Please select who you're looking for";
       }
 
+      // Mandatory fields validation
+      if (field === "country" && !formData.country.trim()) {
+        newErrors.country = "Country is required";
+      }
+
+      if (field === "state" && !formData.state.trim()) {
+        newErrors.state = "State/Province is required";
+      }
+
+      if (field === "city" && !formData.city.trim()) {
+        newErrors.city = "City is required";
+      }
+
+      if (field === "religion" && !formData.religion.trim()) {
+        newErrors.religion = "Religion is required";
+      }
+
+      if (field === "caste" && !formData.caste.trim()) {
+        newErrors.caste = "Caste is required";
+      }
+
+      if (field === "height") {
+        if (!formData.height) {
+          newErrors.height = "Height is required";
+        } else if (parseFloat(formData.height) < 100 || parseFloat(formData.height) > 250) {
+          newErrors.height = "Height must be between 100cm and 250cm";
+        }
+      }
+
+      if (field === "weight") {
+        if (!formData.weight) {
+          newErrors.weight = "Weight is required";
+        } else if (parseFloat(formData.weight) < 30 || parseFloat(formData.weight) > 200) {
+          newErrors.weight = "Weight must be between 30kg and 200kg";
+        }
+      }
+
+      if (field === "income" && !formData.income.trim()) {
+        newErrors.income = "Annual income is required";
+      }
+
+      if (field === "educationLevel" && !formData.educationLevel) {
+        newErrors.educationLevel = "Education level is required";
+      }
+
       if (
         field === "email" &&
         formData.email &&
@@ -309,15 +354,15 @@ const ModernSignup = () => {
         lookingFor: formData.lookingFor,
         phone: formData.phone || null,
         email: formData.email || null,
-        country: formData.country || null,
-        state: formData.state || null,
-        city: formData.city || null,
-        religion: formData.religion || null,
-        caste: formData.caste || null,
-        height: formData.height ? parseFloat(formData.height) : null,
-        weight: formData.weight ? parseFloat(formData.weight) : null,
-        income: formData.income || null,
-        educationLevel: formData.educationLevel || null,
+        country: formData.country,
+        state: formData.state,
+        city: formData.city,
+        religion: formData.religion,
+        caste: formData.caste,
+        height: parseFloat(formData.height),
+        weight: parseFloat(formData.weight),
+        income: formData.income,
+        educationLevel: formData.educationLevel,
         occupation: formData.occupation || null,
         company: formData.company || null,
         bio: formData.bio || null,
@@ -359,25 +404,25 @@ const ModernSignup = () => {
 
   const getFieldIcon = (fieldName) => {
     const icons = {
-      username: <User className="h-5 w-5" />,
-      password: <Lock className="h-5 w-5" />,
-      confirmPassword: <Lock className="h-5 w-5" />,
-      birthDate: <Calendar className="h-5 w-5" />,
-      lookingFor: <Users className="h-5 w-5" />,
-      phone: <Phone className="h-5 w-5" />,
-      email: <Mail className="h-5 w-5" />,
-      country: <Globe className="h-5 w-5" />,
-      state: <MapPin className="h-5 w-5" />,
-      city: <MapPin className="h-5 w-5" />,
-      religion: <Church className="h-5 w-5" />,
-      height: <Ruler className="h-5 w-5" />,
-      weight: <Scale className="h-5 w-5" />,
-      income: <DollarSign className="h-5 w-5" />,
-      educationLevel: <GraduationCap className="h-5 w-5" />,
-      occupation: <Briefcase className="h-5 w-5" />,
-      company: <Briefcase className="h-5 w-5" />,
+      username: <User className="h-5 w-5 text-gray-600" />,
+      password: <Lock className="h-5 w-5 text-gray-600" />,
+      confirmPassword: <Lock className="h-5 w-5 text-gray-600" />,
+      birthDate: <Calendar className="h-5 w-5 text-gray-600" />,
+      lookingFor: <Users className="h-5 w-5 text-gray-600" />,
+      phone: <Phone className="h-5 w-5 text-gray-600" />,
+      email: <Mail className="h-5 w-5 text-gray-600" />,
+      country: <Globe className="h-5 w-5 text-gray-600" />,
+      state: <MapPin className="h-5 w-5 text-gray-600" />,
+      city: <MapPin className="h-5 w-5 text-gray-600" />,
+      religion: <Church className="h-5 w-5 text-gray-600" />,
+      height: <Ruler className="h-5 w-5 text-gray-600" />,
+      weight: <Scale className="h-5 w-5 text-gray-600" />,
+      income: <DollarSign className="h-5 w-5 text-gray-600" />,
+      educationLevel: <GraduationCap className="h-5 w-5 text-gray-600" />,
+      occupation: <Briefcase className="h-5 w-5 text-gray-600" />,
+      company: <Briefcase className="h-5 w-5 text-gray-600" />,
     };
-    return icons[fieldName] || <User className="h-5 w-5" />;
+    return icons[fieldName] || <User className="h-5 w-5 text-gray-600" />;
   };
 
   const renderField = (fieldName) => {
@@ -421,41 +466,41 @@ const ModernSignup = () => {
         placeholder: "your.email@example.com",
         label: "Email Address (Optional)",
       },
-      country: { type: "text", placeholder: "Your country (Optional)", label: "Country" },
+      country: { type: "text", placeholder: "Your country", label: "Country" },
       state: {
         type: "text",
-        placeholder: "Your state/province (Optional)",
+        placeholder: "Your state/province",
         label: "State/Province",
       },
-      city: { type: "text", placeholder: "Your city (Optional)", label: "City" },
+      city: { type: "text", placeholder: "Your city", label: "City" },
       religion: {
         type: "text",
-        placeholder: "Your religion (optional)",
+        placeholder: "Your religion",
         label: "Religion",
       },
       caste: {
         type: "text",
-        placeholder: "Your caste (optional)",
+        placeholder: "Your caste",
         label: "Caste",
       },
       height: {
         type: "number",
-        placeholder: "Height in cm (Optional)",
+        placeholder: "Height in cm",
         label: "Height (cm)",
       },
       weight: {
         type: "number",
-        placeholder: "Weight in kg (Optional)",
+        placeholder: "Weight in kg",
         label: "Weight (kg)",
       },
       income: {
         type: "text",
-        placeholder: "Annual income (optional)",
+        placeholder: "Annual income",
         label: "Annual Income",
       },
       educationLevel: {
         type: "select",
-        placeholder: "Select education level (Optional)",
+        placeholder: "Select education level",
         label: "Education Level",
       },
       occupation: {
@@ -591,47 +636,63 @@ const ModernSignup = () => {
       >
         <label className="block text-sm font-semibold text-gray-700">
           {config.label}
+          {[
+            "country", "state", "city", "religion", "caste", 
+            "height", "weight", "income", "educationLevel"
+          ].includes(fieldName) && (
+            <span className="text-red-500 ml-1">*</span>
+          )}
         </label>
         <div className="relative">
-          {config.type !== "textarea" && (
+          {config.type !== "textarea" && config.type !== "select" && (
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               {getFieldIcon(fieldName)}
             </div>
           )}
 
           {config.type === "select" ? (
-            <select
-              value={formData[fieldName]}
-              onChange={(e) => handleInputChange(fieldName, e.target.value)}
-              className="w-full py-4 px-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800"
-            >
-              <option value="">{config.placeholder}</option>
-              {fieldName === "gender" && (
-                <>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </>
-              )}
-              {fieldName === "lookingFor" && (
-                <>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Both">Both</option>
-                  <option value="Any">Any</option>
-                </>
-              )}
-              {fieldName === "educationLevel" && (
-                <>
-                  <option value="High School">High School</option>
-                  <option value="Diploma">Diploma</option>
-                  <option value="Bachelor's Degree">Bachelor's Degree</option>
-                  <option value="Master's Degree">Master's Degree</option>
-                  <option value="Doctorate/PhD">Doctorate/PhD</option>
-                  <option value="Other">Other</option>
-                </>
-              )}
-            </select>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                {getFieldIcon(fieldName)}
+              </div>
+              <select
+                value={formData[fieldName]}
+                onChange={(e) => handleInputChange(fieldName, e.target.value)}
+                className="w-full py-4 pl-12 pr-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 appearance-none"
+              >
+                <option value="">{config.placeholder}</option>
+                {fieldName === "gender" && (
+                  <>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </>
+                )}
+                {fieldName === "lookingFor" && (
+                  <>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Both">Both</option>
+                    <option value="Any">Any</option>
+                  </>
+                )}
+                {fieldName === "educationLevel" && (
+                  <>
+                    <option value="High School">High School</option>
+                    <option value="Diploma">Diploma</option>
+                    <option value="Bachelor's Degree">Bachelor's Degree</option>
+                    <option value="Master's Degree">Master's Degree</option>
+                    <option value="Doctorate/PhD">Doctorate/PhD</option>
+                    <option value="Other">Other</option>
+                  </>
+                )}
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           ) : config.type === "textarea" ? (
             <textarea
               value={formData[fieldName]}

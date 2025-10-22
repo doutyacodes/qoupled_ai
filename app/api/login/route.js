@@ -23,7 +23,7 @@ export async function POST(req) {
     }
 
     const decryptedPassword = decryptText(existingUser.password);
-
+    console.log('decryptedPassword',decryptedPassword)
     if (decryptedPassword === data.password) {
       const token = jwt.sign(
         { userId: existingUser.id },

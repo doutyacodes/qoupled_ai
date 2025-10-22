@@ -1,4 +1,4 @@
-import { boolean, date, datetime, decimal, float, int, mysqlEnum, mysqlTable, primaryKey, text, time, timestamp, unique, varchar, year,json } from "drizzle-orm/mysql-core";
+import { boolean, date, datetime, decimal, float, int, mysqlEnum, mysqlTable, primaryKey, text, time, timestamp, unique, varchar, year,json, uniqueIndex, index  } from "drizzle-orm/mysql-core";
 
 export const USER_DETAILS = mysqlTable('user_details', {
     id: int('id').notNull().primaryKey(),

@@ -101,7 +101,7 @@ const ModernQuizPage = ({ params }) => {
       }
       
       // Update progress when question changes
-      setProgress(((currentQuestionIndex + 1) / questions.length) * 100);
+      setProgress((currentQuestionIndex / questions.length) * 100);
     }
   }, [currentQuestionIndex, questions]);
 

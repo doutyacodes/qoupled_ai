@@ -13,8 +13,8 @@ export default {
     dialect: 'mysql',
     dbCredentials: {
         host: "68.178.163.247",
-        user: "devuser_qoupled_user",
-        database: "devuser_qoupled",
+        user: "devuser_qoupled_upgrade",
+        database: "devuser_qoupled_upgrade",
         password: 'Wowfy#user'
     }
 };
