@@ -10,20 +10,30 @@ export async function POST(req) {
     return authResult.response;
   }
 
-  const currentUserId = authResult.user.id;
-  
+  // FIX: Use decoded_Data instead of user
+  const userData = authResult.decoded_Data;
+  const currentUserId = userData.userId; // Get userId from decoded_Data
+ 
   try {
     const body = await req.json();
     const { receiverId, connectionType = 'regular', isPremiumConnection = false } = body;
-    
+   
     if (!receiverId || isNaN(parseInt(receiverId))) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'Invalid receiver ID',
-        success: false 
+        success: false
       }, { status: 400 });
     }
 
     const targetUserId = parseInt(receiverId);
+
+    // Prevent self-connection
+    if (currentUserId === targetUserId) {
+      return NextResponse.json({
+        message: 'Cannot send connection request to yourself',
+        success: false
+      }, { status: 400 });
+    }
 
     // Check if connection already exists
     const existingConnection = await db
@@ -45,14 +55,16 @@ export async function POST(req) {
       .execute();
 
     if (existingConnection && existingConnection.length > 0) {
-      return NextResponse.json({ 
-        message: 'Connection request already exists',
-        success: false 
+      const conn = existingConnection[0];
+      return NextResponse.json({
+        message: `Connection ${conn.status === 'pending' ? 'request already exists' : 'already established'}`,
+        status: conn.status,
+        success: false
       }, { status: 400 });
     }
 
     // Create new connection request
-    const newConnection = await db
+    const [newConnection] = await db
       .insert(CONNECTIONS)
       .values({
         senderId: currentUserId,
@@ -64,18 +76,18 @@ export async function POST(req) {
       })
       .execute();
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Connection request sent successfully',
       connectionId: newConnection.insertId,
-      success: true 
+      success: true
     }, { status: 201 });
 
   } catch (error) {
     console.error("Error sending connection request:", error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Error sending connection request',
       error: error.message,
-      success: false 
+      success: false
     }, { status: 500 });
   }
 }
