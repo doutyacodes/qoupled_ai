@@ -15,6 +15,12 @@ export default function TestingPage() {
   const [deleteEndId, setDeleteEndId] = useState('');
   const [deleteResults, setDeleteResults] = useState(null);
 
+  // Mark test completed state
+  const [markTestLoading, setMarkTestLoading] = useState(false);
+  const [markTestStartId, setMarkTestStartId] = useState('');
+  const [markTestEndId, setMarkTestEndId] = useState('');
+  const [markTestResults, setMarkTestResults] = useState(null);
+
   const generateUsers = async () => {
     setLoading(true);
     setError(null);
@@ -88,6 +94,53 @@ export default function TestingPage() {
       setError('Error deleting users: ' + error.message);
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const markTestCompleted = async () => {
+    setMarkTestLoading(true);
+    setError(null);
+    setMarkTestResults(null);
+
+    try {
+      if (!markTestStartId || !markTestEndId) {
+        setError('Please provide both Start ID and End ID for marking test completion');
+        setMarkTestLoading(false);
+        return;
+      }
+
+      if (parseInt(markTestStartId) > parseInt(markTestEndId)) {
+        setError('Start ID must be less than or equal to End ID');
+        setMarkTestLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/testing', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'mark_test_completed',
+          startId: parseInt(markTestStartId),
+          endId: parseInt(markTestEndId)
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMarkTestResults(data);
+        setMarkTestStartId('');
+        setMarkTestEndId('');
+      } else {
+        setError(data.message || 'Failed to mark test completion');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Error marking test completion: ' + error.message);
+    } finally {
+      setMarkTestLoading(false);
     }
   };
 
@@ -259,7 +312,108 @@ export default function TestingPage() {
               </div>
             </div>
           </div>
+
+          {/* Mark Test Completed Controls */}
+          <div className="border-t pt-8">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">✅ Mark Test Completed</h2>
+            <p className="text-gray-600 mb-4 text-sm">
+              Mark users as having completed the compatibility test. This enables compatibility checking for these users.
+            </p>
+            <div className="flex flex-wrap gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start ID
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={markTestStartId}
+                  onChange={(e) => setMarkTestStartId(e.target.value)}
+                  placeholder="e.g., 1"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent w-32"
+                  disabled={markTestLoading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End ID
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={markTestEndId}
+                  onChange={(e) => setMarkTestEndId(e.target.value)}
+                  placeholder="e.g., 50"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent w-32"
+                  disabled={markTestLoading}
+                />
+              </div>
+
+              <button
+                onClick={markTestCompleted}
+                disabled={markTestLoading || !markTestStartId || !markTestEndId}
+                className={`px-6 py-2 rounded-lg font-semibold text-white transition-all ${
+                  markTestLoading || !markTestStartId || !markTestEndId
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl'
+                }`}
+              >
+                {markTestLoading ? 'Marking...' : '✅ Mark as Completed'}
+              </button>
+            </div>
+
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">ℹ️</span>
+                <div className="text-sm text-green-800">
+                  <p className="font-semibold mb-1">This marks test as completed:</p>
+                  <ul className="list-disc ml-4 space-y-1">
+                    <li>Adds QUIZ_COMPLETION entry (test_id = 2, completed = 'yes')</li>
+                    <li>Enables compatibility checking for these users</li>
+                    <li>Required for /api/users/[id]/compatibility endpoint</li>
+                    <li>Automatically done when "Include Test Data" is checked during generation</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Mark Test Results */}
+        {markTestResults && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-2xl">✅</span>
+              <div>
+                <h3 className="font-bold text-green-800 mb-2">Test Completion Marked!</h3>
+                <p className="text-green-700">{markTestResults.message}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="p-4 bg-green-50 rounded-lg">
+                <div className="text-sm font-medium text-green-600 mb-1">Total</div>
+                <div className="text-2xl font-bold text-green-700">{markTestResults.total}</div>
+              </div>
+              <div className="p-4 bg-emerald-50 rounded-lg">
+                <div className="text-sm font-medium text-emerald-600 mb-1">Success</div>
+                <div className="text-2xl font-bold text-emerald-700">{markTestResults.successCount}</div>
+              </div>
+              <div className="p-4 bg-red-50 rounded-lg">
+                <div className="text-sm font-medium text-red-600 mb-1">Failed</div>
+                <div className="text-2xl font-bold text-red-700">{markTestResults.failCount}</div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>✓ Users can now be checked for compatibility!</strong><br/>
+                Visit any user profile and the compatibility score will be calculated.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (

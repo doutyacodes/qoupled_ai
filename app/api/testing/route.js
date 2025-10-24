@@ -14,6 +14,7 @@ import {
     USER_MBTI_ASSESSMENT,
     QUIZ_SEQUENCES,  // CRITICAL: For MBTI quiz completion
     TEST_PROGRESS,   // CRITICAL: For compatibility test answers
+    QUIZ_COMPLETION, // NEW: For marking test completion
     TESTS,
     QUESTIONS,
     ANSWERS
@@ -266,6 +267,48 @@ async function insertMBTIQuizCompletion(userId, mbtiType) {
   }
 }
 
+// NEW: Mark compatibility test as completed for compatibility checking
+async function markCompatibilityTestCompleted(userId) {
+  try {
+    // Check if already marked
+    const [existing] = await db
+      .select()
+      .from(QUIZ_COMPLETION)
+      .where(
+        and(
+          eq(QUIZ_COMPLETION.user_id, userId),
+          eq(QUIZ_COMPLETION.test_id, 2)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      // Update if exists
+      await db
+        .update(QUIZ_COMPLETION)
+        .set({ completed: 'yes', completedAt: new Date() })
+        .where(
+          and(
+            eq(QUIZ_COMPLETION.user_id, userId),
+            eq(QUIZ_COMPLETION.test_id, 2)
+          )
+        );
+    } else {
+      // Insert new
+      await db.insert(QUIZ_COMPLETION).values({
+        user_id: userId,
+        test_id: 2, // Compatibility test
+        completed: 'yes',
+        completedAt: new Date()
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error('Error marking test completion:', error);
+    return false;
+  }
+}
+
 // CRITICAL: Insert TEST_PROGRESS for compatibility test (makes users matchable)
 async function insertCompatibilityTestProgress(userId) {
   try {
@@ -370,6 +413,8 @@ async function insertUserToDatabase(userData, includeTestData = true) {
     // 4. **CRITICAL**: Insert compatibility test progress (makes user discoverable in compatibility matching)
     if (includeTestData) {
       await insertCompatibilityTestProgress(userId);
+      // NEW: Mark test as completed for compatibility checking
+      await markCompatibilityTestCompleted(userId);
     }
 
     // 5. Insert education
@@ -526,6 +571,7 @@ export async function GET() {
     endpoint: '/api/testing',
     methods: {
       POST: 'Create users - { "count": 32, "includeTestData": true }',
+      PATCH: 'Mark test completed - { "action": "mark_test_completed", "startId": 1, "endId": 50 }',
       DELETE: 'Delete users - { "startId": 1, "endId": 50 } or { "deleteAll": true }'
     },
     features: [
@@ -535,6 +581,7 @@ export async function GET() {
       'Direct database insertion',
       'MBTI quiz completion (QUIZ_SEQUENCES)',
       'Compatibility test progress (TEST_PROGRESS)',
+      'Test completion marking (QUIZ_COMPLETION)',
       'Users discoverable in matching system',
       'Complete user profiles',
       'Education and job details',
@@ -542,9 +589,86 @@ export async function GET() {
       'Matching preferences',
       'Password hashing (bcrypt)',
       'Bulk deletion by ID range',
+      'Mark test completion for compatibility checking',
     ],
-    note: 'Users are fully compatible with the matching/filtering system'
+    note: 'Users are fully compatible with the matching/filtering and compatibility checking system'
   });
+}
+
+export async function PATCH(request) {
+  try {
+    const { action, startId, endId, userIds } = await request.json();
+
+    if (action === 'mark_test_completed') {
+      // Validate input
+      let targetUserIds = [];
+
+      if (userIds && Array.isArray(userIds)) {
+        targetUserIds = userIds;
+      } else if (startId && endId) {
+        // Get users in range
+        const users = await db
+          .select({ id: USER.id })
+          .from(USER)
+          .execute();
+        
+        targetUserIds = users
+          .filter(u => u.id >= startId && u.id <= endId)
+          .map(u => u.id);
+      } else {
+        return NextResponse.json({
+          success: false,
+          message: 'Please provide either userIds array or startId/endId range'
+        }, { status: 400 });
+      }
+
+      if (targetUserIds.length === 0) {
+        return NextResponse.json({
+          success: false,
+          message: 'No users found to mark'
+        }, { status: 404 });
+      }
+
+      console.log(`Marking test completion for ${targetUserIds.length} users...`);
+
+      let successCount = 0;
+      let failCount = 0;
+      const results = [];
+
+      for (const userId of targetUserIds) {
+        try {
+          await markCompatibilityTestCompleted(userId);
+          successCount++;
+          results.push({ userId, success: true });
+        } catch (error) {
+          failCount++;
+          results.push({ userId, success: false, error: error.message });
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Marked ${successCount} users as test completed`,
+        successCount,
+        failCount,
+        total: targetUserIds.length,
+        results: results.slice(0, 10) // Show first 10
+      });
+    }
+
+    return NextResponse.json({
+      success: false,
+      message: 'Invalid action'
+    }, { status: 400 });
+
+  } catch (error) {
+    console.error('Error in PATCH handler:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Error processing request',
+      error: error.message
+    }, { status: 500 });
+  }
 }
 
 export async function DELETE(request) {
