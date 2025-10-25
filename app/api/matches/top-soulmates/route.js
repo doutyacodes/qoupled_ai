@@ -15,7 +15,7 @@ import {
   USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
   PREFERENCE_OPTIONS,
-  USER_IMAGES // ADDED: Import USER_IMAGES table
+  USER_IMAGES
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { and, eq, ne, inArray, notInArray, isNotNull, or, sql } from 'drizzle-orm';
@@ -370,11 +370,11 @@ export async function GET(req) {
           income: USER.income,
           isProfileVerified: USER.isProfileVerified,
           isProfileComplete: USER.isProfileComplete,
-          profileImageUrl: sql`MAX(${USER_IMAGES.image_url})`.as('profileImageUrl')
+          profileImageUrl: sql`COALESCE(MAX(${USER_IMAGES.image_url}), NULL)`.as('profileImageUrl')
         })
         .from(USER)
         .innerJoin(TEST_PROGRESS, eq(TEST_PROGRESS.user_id, USER.id))
-        .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+        .leftJoin(USER_IMAGES, and(
           eq(USER_IMAGES.user_id, USER.id),
           eq(USER_IMAGES.is_profile, true)
         ))
@@ -382,12 +382,26 @@ export async function GET(req) {
           and(
             ne(USER.id, currentUserId),
             eq(TEST_PROGRESS.test_id, 2),
-            genderConditions, // Use lookingFor filter
+            genderConditions,
             isNotNull(USER.username),
             isNotNull(USER.birthDate)
           )
         )
-        .groupBy(USER.id)
+        .groupBy(
+          USER.id,
+          USER.username,
+          USER.birthDate,
+          USER.gender,
+          USER.country,
+          USER.state,
+          USER.city,
+          USER.religion,
+          USER.height,
+          USER.weight,
+          USER.income,
+          USER.isProfileVerified,
+          USER.isProfileComplete
+        )
         .execute();
 
       // Filter by mutual lookingFor preference
@@ -524,11 +538,11 @@ export async function GET(req) {
           isProfileVerified: USER.isProfileVerified,
           isProfileComplete: USER.isProfileComplete,
           mbtiType: QUIZ_SEQUENCES.type_sequence,
-          profileImageUrl: sql`MAX(${USER_IMAGES.image_url})`.as('profileImageUrl')
+          profileImageUrl: sql`COALESCE(MAX(${USER_IMAGES.image_url}), NULL)`.as('profileImageUrl')
         })
         .from(USER)
         .innerJoin(QUIZ_SEQUENCES, eq(QUIZ_SEQUENCES.user_id, USER.id))
-        .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+        .leftJoin(USER_IMAGES, and(
           eq(USER_IMAGES.user_id, USER.id),
           eq(USER_IMAGES.is_profile, true)
         ))
@@ -537,10 +551,26 @@ export async function GET(req) {
             ne(USER.id, currentUserId),
             eq(QUIZ_SEQUENCES.quiz_id, 1),
             eq(QUIZ_SEQUENCES.isCompleted, true),
-            genderConditions, // Use lookingFor filter
+            genderConditions,
             isNotNull(USER.username),
             isNotNull(USER.birthDate)
           )
+        )
+        .groupBy(
+          USER.id,
+          USER.username,
+          USER.birthDate,
+          USER.gender,
+          USER.country,
+          USER.state,
+          USER.city,
+          USER.religion,
+          USER.height,
+          USER.weight,
+          USER.income,
+          USER.isProfileVerified,
+          USER.isProfileComplete,
+          QUIZ_SEQUENCES.type_sequence
         )
         .execute();
 
