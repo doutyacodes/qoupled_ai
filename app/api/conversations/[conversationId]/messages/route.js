@@ -1,6 +1,6 @@
 // app/api/conversations/[conversationId]/messages/route.js
 import { db } from '@/utils';
-import { CONVERSATIONS, CONVERSATION_PARTICIPANTS, MESSAGES, USER, MESSAGE_READS } from '@/utils/schema';
+import { CONVERSATIONS, CONVERSATION_PARTICIPANTS, MESSAGES, USER, MESSAGE_READS, USER_IMAGES } from '@/utils/schema'; // ADDED: USER_IMAGES import
 import { NextResponse } from 'next/server';
 import { and, eq, desc, asc, isNull } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
@@ -36,7 +36,7 @@ export async function GET(req, { params }) {
             return NextResponse.json({ message: 'Unauthorized access to conversation' }, { status: 403 });
         }
 
-        // Get messages with sender information
+        // Get messages with sender information and profile images
         const messages = await db
             .select({
                 id: MESSAGES.id,
@@ -50,11 +50,17 @@ export async function GET(req, { params }) {
                 sender: {
                     id: USER.id,
                     username: USER.username,
-                    profileImageUrl: USER.profileImageUrl,
+                    // REMOVED: profileImageUrl from USER table
+                    // ADDED: profile image from USER_IMAGES
+                    profileImageUrl: USER_IMAGES.image_url
                 }
             })
             .from(MESSAGES)
             .leftJoin(USER, eq(MESSAGES.sender_id, USER.id))
+            .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+                eq(USER_IMAGES.user_id, USER.id),
+                eq(USER_IMAGES.is_profile, true)
+            ))
             .where(eq(MESSAGES.conversation_id, conversationId))
             .orderBy(asc(MESSAGES.created_at))
             .execute();
@@ -202,7 +208,7 @@ export async function POST(req, { params }) {
             .where(eq(CONVERSATIONS.id, conversationId))
             .execute();
 
-        // Get the complete message with sender info
+        // Get the complete message with sender info and profile image
         const completeMessage = await db
             .select({
                 id: MESSAGES.id,
@@ -217,11 +223,17 @@ export async function POST(req, { params }) {
                 sender: {
                     id: USER.id,
                     username: USER.username,
-                    profileImageUrl: USER.profileImageUrl,
+                    // REMOVED: profileImageUrl from USER table
+                    // ADDED: profile image from USER_IMAGES
+                    profileImageUrl: USER_IMAGES.image_url
                 }
             })
             .from(MESSAGES)
             .leftJoin(USER, eq(MESSAGES.sender_id, USER.id))
+            .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+                eq(USER_IMAGES.user_id, USER.id),
+                eq(USER_IMAGES.is_profile, true)
+            ))
             .where(eq(MESSAGES.id, messageId))
             .execute();
 

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { decryptText } from '@/utils/encryption';
 import { Heart, Loader2, AlertTriangle, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { BASE_IMAGE_URL } from '@/utils/constants';
 
 const CompatibilityResult = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,7 +15,6 @@ const CompatibilityResult = () => {
   const [hasRedFlags, setHasRedFlags] = useState(false);
   const router = useRouter();
   const [inviteUserId, setInviteUserId] = useState('');
-  const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
 
   const [isRequestSending, setIsRequestSending] = useState(false);
   const [requestStatus, setRequestStatus] = useState(null);

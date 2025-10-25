@@ -8,7 +8,8 @@ import {
   GROUP_CHAT_MESSAGES,
   AI_CHARACTERS,
   USER,
-  USER_AI_FRIENDS
+  USER_AI_FRIENDS,
+  USER_IMAGES // ADDED: Import USER_IMAGES table
 } from "@/utils/schema";
 import { db } from "@/utils";
 import { eq, and, desc, inArray } from "drizzle-orm";
@@ -64,17 +65,23 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Get all participants
+    // Get all participants with profile images
     const participants = await db
       .select({
         userId: USER.id,
         username: USER.username,
-        profileImageUrl: USER.profileImageUrl,
+        // REMOVED: profileImageUrl from USER table
         role: GROUP_CHAT_PARTICIPANTS.role,
-        joinedAt: GROUP_CHAT_PARTICIPANTS.joinedAt
+        joinedAt: GROUP_CHAT_PARTICIPANTS.joinedAt,
+        // ADDED: profile image from USER_IMAGES
+        profileImageUrl: USER_IMAGES.image_url
       })
       .from(GROUP_CHAT_PARTICIPANTS)
       .innerJoin(USER, eq(GROUP_CHAT_PARTICIPANTS.userId, USER.id))
+      .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+        eq(USER_IMAGES.user_id, GROUP_CHAT_PARTICIPANTS.userId),
+        eq(USER_IMAGES.is_profile, true)
+      ))
       .where(and(
         eq(GROUP_CHAT_PARTICIPANTS.groupChatId, groupChatId),
         eq(GROUP_CHAT_PARTICIPANTS.isActive, true)
@@ -100,7 +107,7 @@ export async function GET(request, { params }) {
       index === self.findIndex(a => a.id === ai.id)
     );
 
-    // Get messages
+    // Get messages with profile images
     const messages = await db
       .select({
         id: GROUP_CHAT_MESSAGES.id,
@@ -111,13 +118,19 @@ export async function GET(request, { params }) {
         messageType: GROUP_CHAT_MESSAGES.messageType,
         createdAt: GROUP_CHAT_MESSAGES.createdAt,
         username: USER.username,
-        userAvatar: USER.profileImageUrl,
+        // REMOVED: userAvatar from USER table
         aiName: AI_CHARACTERS.displayName,
-        aiAvatar: AI_CHARACTERS.avatarUrl
+        aiAvatar: AI_CHARACTERS.avatarUrl,
+        // ADDED: user profile image from USER_IMAGES
+        userProfileImageUrl: USER_IMAGES.image_url
       })
       .from(GROUP_CHAT_MESSAGES)
       .leftJoin(USER, eq(GROUP_CHAT_MESSAGES.senderUserId, USER.id))
       .leftJoin(AI_CHARACTERS, eq(GROUP_CHAT_MESSAGES.senderAiId, AI_CHARACTERS.id))
+      .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES for user profile images
+        eq(USER_IMAGES.user_id, GROUP_CHAT_MESSAGES.senderUserId),
+        eq(USER_IMAGES.is_profile, true)
+      ))
       .where(and(
         eq(GROUP_CHAT_MESSAGES.groupChatId, groupChatId),
         eq(GROUP_CHAT_MESSAGES.isDeleted, false)
@@ -131,7 +144,7 @@ export async function GET(request, { params }) {
       sender: msg.senderType,
       senderId: msg.senderUserId || msg.senderAiId,
       senderName: msg.senderType === 'user' ? msg.username : msg.aiName,
-      senderAvatar: msg.senderType === 'user' ? msg.userAvatar : msg.aiAvatar,
+      senderAvatar: msg.senderType === 'user' ? msg.userProfileImageUrl : msg.aiAvatar, // UPDATED: Use from USER_IMAGES
       content: msg.content,
       type: msg.messageType,
       timestamp: new Date(msg.createdAt).toLocaleTimeString([], { 
@@ -144,7 +157,13 @@ export async function GET(request, { params }) {
     return NextResponse.json({
       success: true,
       groupChat: groupChat[0],
-      participants: participants,
+      participants: participants.map(participant => ({
+        id: participant.userId,
+        username: participant.username,
+        profileImageUrl: participant.profileImageUrl, // UPDATED: Now from USER_IMAGES
+        role: participant.role,
+        joinedAt: participant.joinedAt
+      })),
       aiCharacters: uniqueAiCharacters,
       messages: formattedMessages
     }, { status: 200 });
@@ -229,17 +248,23 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "No AI characters found in this group chat" }, { status: 404 });
     }
 
-    // Get recent conversation history
+    // Get recent conversation history with profile images
     const recentMessages = await db
       .select({
         senderType: GROUP_CHAT_MESSAGES.senderType,
         content: GROUP_CHAT_MESSAGES.content,
         username: USER.username,
-        aiName: AI_CHARACTERS.displayName
+        aiName: AI_CHARACTERS.displayName,
+        // ADDED: user profile image for context
+        userProfileImageUrl: USER_IMAGES.image_url
       })
       .from(GROUP_CHAT_MESSAGES)
       .leftJoin(USER, eq(GROUP_CHAT_MESSAGES.senderUserId, USER.id))
       .leftJoin(AI_CHARACTERS, eq(GROUP_CHAT_MESSAGES.senderAiId, AI_CHARACTERS.id))
+      .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES
+        eq(USER_IMAGES.user_id, GROUP_CHAT_MESSAGES.senderUserId),
+        eq(USER_IMAGES.is_profile, true)
+      ))
       .where(eq(GROUP_CHAT_MESSAGES.groupChatId, groupChatId))
       .orderBy(desc(GROUP_CHAT_MESSAGES.createdAt))
       .limit(15)

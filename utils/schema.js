@@ -740,6 +740,14 @@ export const USER = mysqlTable('user', {
   isProfileComplete: boolean('is_profile_complete').default(false),
 });
 
+export const USER_IMAGES = mysqlTable('user_images', {
+  id: int('id').primaryKey().autoincrement(),
+  user_id: int('user_id').notNull(), // references USER.id
+  image_url: varchar('image_url', { length: 500 }).notNull(),
+  is_profile: boolean('is_profile').default(false), // indicates if it's the current profile image
+  uploaded_at: timestamp('uploaded_at').defaultNow(),
+});
+
 // Updated CONNECTIONS table with premium tracking
 export const CONNECTIONS = mysqlTable("connections", {
   connectionId: int("connection_id").primaryKey().autoincrement(),

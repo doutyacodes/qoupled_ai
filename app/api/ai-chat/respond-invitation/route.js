@@ -7,7 +7,8 @@ import {
   GROUP_CHAT_PARTICIPANTS,
   GROUP_CHAT_MESSAGES,
   AI_CHARACTERS,
-  USER
+  USER,
+  USER_IMAGES // ADDED: Import USER_IMAGES table
 } from "@/utils/schema";
 import { db } from "@/utils";
 import { eq, and } from "drizzle-orm";
@@ -102,11 +103,28 @@ export async function POST(request) {
         .where(eq(GROUP_CHAT_INVITATIONS.id, invitationId))
         .execute();
 
-      // Get invitation details and users
-      const [aiCharacter, initiatorUser, invitedUser] = await Promise.all([
+      // Get invitation details and users with profile images
+      const [aiCharacter, initiatorUser, invitedUser, initiatorProfileImage, invitedProfileImage] = await Promise.all([
         db.select().from(AI_CHARACTERS).where(eq(AI_CHARACTERS.id, currentInvitation.aiCharacterId)).limit(1).execute(),
         db.select().from(USER).where(eq(USER.id, currentInvitation.initiatorUserId)).limit(1).execute(),
-        db.select().from(USER).where(eq(USER.id, currentInvitation.invitedUserId)).limit(1).execute()
+        db.select().from(USER).where(eq(USER.id, currentInvitation.invitedUserId)).limit(1).execute(),
+        // NEW: Get profile images for both users
+        db.select({ image_url: USER_IMAGES.image_url })
+          .from(USER_IMAGES)
+          .where(and(
+            eq(USER_IMAGES.user_id, currentInvitation.initiatorUserId),
+            eq(USER_IMAGES.is_profile, true)
+          ))
+          .limit(1)
+          .execute(),
+        db.select({ image_url: USER_IMAGES.image_url })
+          .from(USER_IMAGES)
+          .where(and(
+            eq(USER_IMAGES.user_id, currentInvitation.invitedUserId),
+            eq(USER_IMAGES.is_profile, true)
+          ))
+          .limit(1)
+          .execute()
       ]);
 
       if (aiCharacter.length === 0 || initiatorUser.length === 0 || invitedUser.length === 0) {
@@ -119,6 +137,10 @@ export async function POST(request) {
       const ai = aiCharacter[0];
       const initiator = initiatorUser[0];
       const invited = invitedUser[0];
+
+      // Get profile image URLs
+      const initiatorProfileImageUrl = initiatorProfileImage.length > 0 ? initiatorProfileImage[0].image_url : null;
+      const invitedProfileImageUrl = invitedProfileImage.length > 0 ? invitedProfileImage[0].image_url : null;
 
       // Create group chat
       const chatName = `${initiator.username}, ${invited.username} & ${ai.displayName}`;
@@ -164,8 +186,16 @@ export async function POST(request) {
           id: groupChatId,
           name: chatName,
           participants: [
-            { id: initiator.id, username: initiator.username, profileImageUrl: initiator.profileImageUrl },
-            { id: invited.id, username: invited.username, profileImageUrl: invited.profileImageUrl }
+            { 
+              id: initiator.id, 
+              username: initiator.username, 
+              profileImageUrl: initiatorProfileImageUrl // UPDATED: Use from USER_IMAGES
+            },
+            { 
+              id: invited.id, 
+              username: invited.username, 
+              profileImageUrl: invitedProfileImageUrl // UPDATED: Use from USER_IMAGES
+            }
           ],
           aiCharacter: {
             id: ai.id,

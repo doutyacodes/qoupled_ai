@@ -9,7 +9,8 @@ import {
   JOB_TITLES, 
   USER_PREFERENCE_VALUES, 
   PREFERENCE_CATEGORIES, 
-  PREFERENCE_OPTIONS 
+  PREFERENCE_OPTIONS, 
+  USER_IMAGES
 } from "@/utils/schema";
 import { eq, and } from "drizzle-orm";
 import jwt from "jsonwebtoken";
@@ -39,7 +40,8 @@ export async function POST(req) {
       company,
       bio,
       languages,
-      profileImageUrl
+      profileImageUrl,
+      images 
     } = data;
 
     // ====================================
@@ -157,6 +159,41 @@ export async function POST(req) {
     }
 
     // ====================================
+    // VALIDATE IMAGES
+    // ====================================
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return NextResponse.json(
+        { message: "At least one profile image is required", success: false },
+        { status: 400 }
+      );
+    }
+
+    if (images.length > 3) {
+      return NextResponse.json(
+        { message: "Maximum 3 images allowed", success: false },
+        { status: 400 }
+      );
+    }
+
+    const hasProfileImage = images.some(img => img.isProfile === true);
+    if (!hasProfileImage) {
+      return NextResponse.json(
+        { message: "Please select a profile image", success: false },
+        { status: 400 }
+      );
+    }
+
+    // Validate image URLs
+    for (const image of images) {
+      if (!image.url || typeof image.url !== 'string') {
+        return NextResponse.json(
+          { message: "Invalid image URL format", success: false },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ====================================
     // VALIDATE LOOKING FOR
     // ====================================
     const validLookingForValues = ['Male', 'Female', 'Both', 'Any'];
@@ -186,8 +223,6 @@ export async function POST(req) {
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
         income: income?.trim() || null,
-        profileImageUrl: profileImageUrl || null,
-        // bio: bio?.trim() || null, // Uncomment after adding bio column to schema
         
         // Set default values for subscription fields
         currentPlan: 'free',
@@ -210,6 +245,27 @@ export async function POST(req) {
       }
 
       const userId = result.insertId;
+
+      // ====================================
+      // INSERT USER IMAGES
+      // ====================================
+      if (images && Array.isArray(images) && images.length > 0) {
+        try {
+          const imageInserts = images.map(image => ({
+            user_id: userId,
+            image_url: image.url,
+            is_profile: image.isProfile || false
+          }));
+
+          await db.insert(USER_IMAGES).values(imageInserts);
+          
+          console.log(`Inserted ${images.length} images for user ${userId}`);
+        } catch (imageError) {
+          console.error("Error storing user images:", imageError);
+          // Don't fail the entire signup if image storage fails
+          // User already created, just log the error
+        }
+      }
 
       // ====================================
       // FETCH NEWLY CREATED USER
@@ -426,7 +482,8 @@ export async function POST(req) {
         lookingFor: lookingFor,
         hasEducation: !!educationLevel,
         hasJob: !!occupation,
-        languageCount: languages?.length || 0
+        languageCount: languages?.length || 0,
+        imageCount: images?.length || 0 
       };
 
       return NextResponse.json(

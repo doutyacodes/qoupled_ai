@@ -32,12 +32,15 @@ import {
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import ModernNavbar from '@/app/_components/Navbar';
+import ProfileImagesManager from '../_components/ProfileImagesManager';
+import { BASE_IMAGE_URL } from '@/utils/constants';
 
 export default function UserProfile() {
   const [editMode, setEditMode] = useState(false);
-  const [profileImage, setProfileImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  // const [profileImage, setProfileImage] = useState(null);
+  // const [imagePreview, setImagePreview] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPhotosEditMode, setIsPhotosEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [userData, setUserData] = useState({
     id: '',
@@ -48,7 +51,7 @@ export default function UserProfile() {
     isPhoneVerified: false,
     email: '',
     isEmailVerified: false,
-    profileImageUrl: '',
+    profileImages: [],
     country: '',
     state: '',
     city: '',
@@ -86,8 +89,6 @@ export default function UserProfile() {
   const [educationLevels, setEducationLevels] = useState([]);
   const [jobTitles, setJobTitles] = useState([]);
   
-  const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
-
   useEffect(() => {
     fetchUserProfile();
     fetchCommonData();
@@ -144,42 +145,42 @@ export default function UserProfile() {
     }));
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setProfileImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  // const handleImageChange = (e) => {
+  //   const file = e.target.files[0];
+  //   if (file) {
+  //     setProfileImage(file);
+  //     const reader = new FileReader();
+  //     reader.onloadend = () => {
+  //       setImagePreview(reader.result);
+  //     };
+  //     reader.readAsDataURL(file);
+  //   }
+  // };
 
-  const uploadImageToCPanel = async (file) => {
-    if (!file) return null;
+  // const uploadImageToCPanel = async (file) => {
+  //   if (!file) return null;
     
-    const formData = new FormData();
-    formData.append('coverImage', file);
-    formData.append('type', 'photo');
+  //   const formData = new FormData();
+  //   formData.append('coverImage', file);
+  //   formData.append('type', 'photo');
     
-    try {
-      const response = await axios.post(
-        'https://wowfy.in/wowfy_app_codebase/upload.php',
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+  //   try {
+  //     const response = await axios.post(
+  //       'https://wowfy.in/wowfy_app_codebase/upload.php',
+  //       formData,
+  //       { headers: { 'Content-Type': 'multipart/form-data' } }
+  //     );
       
-      if (response.data.success) {
-        return response.data.filePath;
-      }
-      throw new Error(response.data.error);
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload image');
-      return null;
-    }
-  };
+  //     if (response.data.success) {
+  //       return response.data.filePath;
+  //     }
+  //     throw new Error(response.data.error);
+  //   } catch (error) {
+  //     console.error('Upload error:', error);
+  //     toast.error('Failed to upload image');
+  //     return null;
+  //   }
+  // };
 
   const addEducation = () => {
     if (newEducation.education_level_id === '') {
@@ -288,22 +289,19 @@ export default function UserProfile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate at least one image exists
+    if (!formData.profileImages || formData.profileImages.length === 0) {
+      toast.error('Please upload at least one profile photo');
+      return;
+    }
+    
     try {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
-      let profileImagePath = null;
-      if (profileImage) {
-        profileImagePath = await uploadImageToCPanel(profileImage);
-        if (!profileImagePath) {
-          setIsLoading(false);
-          return;
-        }
-      }
-      
+      // Remove the old image upload code - images are now uploaded immediately
       const dataToSubmit = {
-        ...formData,
-        profileImageUrl: profileImagePath || formData.profileImageUrl
+        ...formData
       };
       
       const response = await axios.put('/api/users/profile', dataToSubmit, {
@@ -418,21 +416,22 @@ export default function UserProfile() {
     }
   ];
 
+
   return (
     <div className="min-h-screen bg-gradient-to-r from-rose-500 to-red-600">
       
-      <div className=" mx-auto py-8 px-4 sm:px-6 lg:px-8 pt-20">
+      <div className="mx-auto py-8 px-4 sm:px-6 lg:px-8 pt-20">
         {/* Profile Header Card */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
           {/* Cover Photo with Gradient Overlay */}
-          <div className="h-40 bg-gradient-to-r from-rose-400 to-red-500  relative">
+          <div className="h-40 bg-gradient-to-r from-rose-400 to-red-500 relative">
             {!editMode ? (
               <button 
                 onClick={() => setEditMode(true)}
-                className="absolute top-4 right-4 bg-white to-red-500 p-2 rounded-full hover:bg-gray-100 transition-colors shadow-md"
+                className="absolute top-4 right-4 bg-white p-2 rounded-full hover:bg-gray-100 transition-colors shadow-md"
                 aria-label="Edit profile"
               >
-                <Pencil size={18} />
+                <Pencil size={18} className="text-gray-700" />
               </button>
             ) : null}
           </div>
@@ -441,52 +440,12 @@ export default function UserProfile() {
           <div className="relative px-6 pb-6">
             {/* Profile Image */}
             <div className="absolute -top-16 left-6">
-              <div className="relative">
-                <div className="h-32 w-32 rounded-xl border-4 border-white shadow-md overflow-hidden bg-white">
-                  {editMode ? (
-                    imagePreview ? (
-                      <img 
-                        src={imagePreview} 
-                        alt="Profile preview" 
-                        className="h-full w-full object-cover"
-                      />
-                    ) : userData.profileImageUrl ? (
-                      <img 
-                        src={`${BASE_IMAGE_URL}${userData.profileImageUrl}`} 
-                        alt="Profile" 
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                        <User size={40} className="text-gray-400" />
-                      </div>
-                    )
-                  ) : userData.profileImageUrl ? (
-                    <img 
-                      src={`${BASE_IMAGE_URL}${userData.profileImageUrl}`} 
-                      alt="Profile" 
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                      <User size={40} className="text-gray-400" />
-                    </div>
-                  )}
-                </div>
-                
-                {editMode && (
-                  <label htmlFor="profile-upload" className="absolute bottom-0 right-0 bg-rose-500 text-white p-2 rounded-full cursor-pointer hover:bg-rose-600 transition-colors shadow-sm">
-                    <Upload size={14} />
-                    <input 
-                      type="file" 
-                      id="profile-upload" 
-                      className="hidden" 
-                      accept="image/*"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                )}
-              </div>
+              <ProfileImagesManager
+                images={editMode ? formData.profileImages : userData.profileImages}
+                onUpdate={(images) => setFormData(prev => ({ ...prev, profileImages: images }))}
+                editMode={false}
+                BASE_IMAGE_URL={BASE_IMAGE_URL}
+              />
             </div>
 
             {/* Profile Info */}
@@ -499,7 +458,7 @@ export default function UserProfile() {
                       name="username"
                       value={formData.username}
                       onChange={handleInputChange}
-                      className="text-2xl font-bold border-b-2 border-gray-200 focus:border-rose-500 focus:outline-none px-1 py-1 mb-1"
+                      className="text-2xl font-bold border-b-2 border-gray-300 focus:border-rose-500 focus:outline-none px-2 py-1 mb-1 bg-white text-gray-900"
                       placeholder="Your name"
                     />
                   ) : (
@@ -545,30 +504,52 @@ export default function UserProfile() {
               <button 
                 type="button"
                 className={`px-4 py-3 font-medium text-sm flex-1 whitespace-nowrap ${activeTab === 'personal' ? 'text-rose-600 border-b-2 border-rose-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}
-                onClick={() => setActiveTab('personal')}
+                onClick={() => {
+                  setActiveTab('personal');
+                  setIsPhotosEditMode(false);
+                }}
               >
                 Personal Info
               </button>
               <button 
                 type="button"
                 className={`px-4 py-3 font-medium text-sm flex-1 whitespace-nowrap ${activeTab === 'education' ? 'text-rose-600 border-b-2 border-rose-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}
-                onClick={() => setActiveTab('education')}
+                onClick={() => {
+                  setActiveTab('education');
+                  setIsPhotosEditMode(false);
+                }}
               >
                 Education
               </button>
               <button 
                 type="button"
                 className={`px-4 py-3 font-medium text-sm flex-1 whitespace-nowrap ${activeTab === 'career' ? 'text-rose-600 border-b-2 border-rose-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}
-                onClick={() => setActiveTab('career')}
+                onClick={() => {
+                  setActiveTab('career');
+                  setIsPhotosEditMode(false);
+                }}
               >
                 Career
               </button>
               <button 
                 type="button"
                 className={`px-4 py-3 font-medium text-sm flex-1 whitespace-nowrap ${activeTab === 'languages' ? 'text-rose-600 border-b-2 border-rose-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}
-                onClick={() => setActiveTab('languages')}
+                onClick={() => {
+                  setActiveTab('languages');
+                  setIsPhotosEditMode(false);
+                }}
               >
                 Languages
+              </button>
+              <button 
+                type="button"
+                className={`px-4 py-3 font-medium text-sm flex-1 whitespace-nowrap ${activeTab === 'images' ? 'text-rose-600 border-b-2 border-rose-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}
+                onClick={() => {
+                  setActiveTab('images');
+                  setIsPhotosEditMode(true); // Special edit mode just for photos
+                }}
+              >
+                Photos
               </button>
             </div>
           </div>
@@ -576,9 +557,22 @@ export default function UserProfile() {
           {/* Tab Content */}
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
             {/* Personal Info Tab */}
+
+            {/* Profile Images Section */}
+            {activeTab === 'images' && (
+              <ProfileImagesManager 
+                images={isPhotosEditMode ? formData.profileImages : userData.profileImages}
+                onUpdate={(images) => {
+                  setFormData(prev => ({ ...prev, profileImages: images }));
+                  setEditMode(true); // Set edit mode to true when images are updated
+                }}
+                editMode={isPhotosEditMode}
+                BASE_IMAGE_URL={BASE_IMAGE_URL}
+              />
+            )}
             {activeTab === 'personal' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4">Personal Information</h2>
+                <h2 className="text-lg font-semibold mb-4 text-gray-900">Personal Information</h2>
                 
                 {editMode ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -593,7 +587,7 @@ export default function UserProfile() {
                           name="birthDate"
                           value={formData.birthDate}
                           onChange={handleInputChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
                         />
                       </div>
                     </div>
@@ -608,7 +602,7 @@ export default function UserProfile() {
                           name="gender"
                           value={formData.gender}
                           onChange={handleInputChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
                         >
                           <option value="">Select gender</option>
                           <option value="Male">Male</option>
@@ -629,7 +623,8 @@ export default function UserProfile() {
                           name="phone"
                           value={formData.phone}
                           onChange={handleInputChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                          placeholder="Enter phone number"
                         />
                       </div>
                     </div>
@@ -645,7 +640,8 @@ export default function UserProfile() {
                           name="email"
                           value={formData.email}
                           onChange={handleInputChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                          placeholder="Enter email address"
                         />
                       </div>
                     </div>
@@ -661,7 +657,8 @@ export default function UserProfile() {
                           name="country"
                           value={formData.country}
                           onChange={handleInputChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                          placeholder="Enter country"
                         />
                       </div>
                     </div>
@@ -673,7 +670,8 @@ export default function UserProfile() {
                         name="state"
                         value={formData.state}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                        placeholder="Enter state"
                       />
                     </div>
                     
@@ -684,7 +682,8 @@ export default function UserProfile() {
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                        placeholder="Enter city"
                       />
                     </div>
                     
@@ -695,7 +694,8 @@ export default function UserProfile() {
                         name="religion"
                         value={formData.religion}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                        placeholder="Enter religion"
                       />
                     </div>
                     
@@ -706,7 +706,8 @@ export default function UserProfile() {
                         name="caste"
                         value={formData.caste}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                        placeholder="Enter caste"
                       />
                     </div>
                     
@@ -717,7 +718,8 @@ export default function UserProfile() {
                         name="height"
                         value={formData.height}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                        placeholder="e.g. 5'10''"
                       />
                     </div>
                     
@@ -728,7 +730,8 @@ export default function UserProfile() {
                         name="weight"
                         value={formData.weight}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                        placeholder="e.g. 70 kg"
                       />
                     </div>
                     
@@ -743,7 +746,8 @@ export default function UserProfile() {
                           name="income"
                           value={formData.income}
                           onChange={handleInputChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
+                          placeholder="Enter income"
                         />
                       </div>
                     </div>
@@ -755,7 +759,7 @@ export default function UserProfile() {
                         <div className="mr-3 flex-shrink-0">{item.icon}</div>
                         <div>
                           <p className="text-xs text-gray-500">{item.label}</p>
-                          <p className="font-medium">{item.value}</p>
+                          <p className="font-medium text-gray-900">{item.value}</p>
                         </div>
                       </div>
                     ))}
@@ -767,7 +771,7 @@ export default function UserProfile() {
             {/* Education Tab */}
             {activeTab === 'education' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4">Education</h2>
+                <h2 className="text-lg font-semibold mb-4 text-gray-900">Education</h2>
                 
                 {editMode ? (
                   <div>
@@ -815,7 +819,7 @@ export default function UserProfile() {
                           <select
                             value={newEducation.education_level_id}
                             onChange={(e) => setNewEducation({...newEducation, education_level_id: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
                           >
                             <option value="">Select Level</option>
                             {educationLevels.map((level) => (
@@ -833,7 +837,7 @@ export default function UserProfile() {
                             placeholder="e.g. Computer Science"
                             value={newEducation.degree}
                             onChange={(e) => setNewEducation({...newEducation, degree: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
                           />
                         </div>
                         
@@ -844,7 +848,7 @@ export default function UserProfile() {
                             placeholder="e.g. 2023"
                             value={newEducation.graduationYear}
                             onChange={(e) => setNewEducation({...newEducation, graduationYear: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-sm bg-white text-gray-900"
                           />
                         </div>
                       </div>
@@ -891,7 +895,7 @@ export default function UserProfile() {
             {/* Career Tab */}
             {activeTab === 'career' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4">Career</h2>
+                <h2 className="text-lg font-semibold mb-4 text-gray-900">Career</h2>
                 
                 {editMode ? (
                   <div>
@@ -937,7 +941,7 @@ export default function UserProfile() {
                           <select
                             value={newJob.job_title_id}
                             onChange={(e) => setNewJob({...newJob, job_title_id: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                           >
                             <option value="">Select Job Title</option>
                             {jobTitles.map((job) => (
@@ -959,7 +963,7 @@ export default function UserProfile() {
                               placeholder="e.g. Apple Inc."
                               value={newJob.company}
                               onChange={(e) => setNewJob({...newJob, company: e.target.value})}
-                              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                             />
                           </div>
                         </div>
@@ -975,7 +979,7 @@ export default function UserProfile() {
                               placeholder="e.g. New York, NY"
                               value={newJob.location}
                               onChange={(e) => setNewJob({...newJob, location: e.target.value})}
-                              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                             />
                           </div>
                         </div>
@@ -1021,7 +1025,7 @@ export default function UserProfile() {
             {/* Languages Tab */}
             {activeTab === 'languages' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4">Languages</h2>
+                <h2 className="text-lg font-semibold mb-4 text-gray-900">Languages</h2>
                 
                 {editMode ? (
                   <div>
@@ -1057,7 +1061,7 @@ export default function UserProfile() {
                         <select
                           value={newLanguage}
                           onChange={(e) => setNewLanguage(e.target.value)}
-                          className="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                          className="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm bg-white text-gray-900"
                         >
                           <option value="">Select a language</option>
                           {availableLanguages.map((lang) => (
@@ -1083,7 +1087,7 @@ export default function UserProfile() {
                         {userData.languages.map((lang) => (
                           <div key={lang.id} className="flex items-center bg-gray-50 px-4 py-3 rounded-lg border border-gray-100">
                             <Languages className="text-purple-500 mr-2" size={18} />
-                            <span className="font-medium">{lang.name}</span>
+                            <span className="font-medium text-gray-900">{lang.name}</span>
                           </div>
                         ))}
                       </div>
@@ -1108,8 +1112,6 @@ export default function UserProfile() {
                   onClick={() => {
                     setEditMode(false);
                     setFormData({...userData});
-                    setImagePreview(null);
-                    setProfileImage(null);
                   }}
                   className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm transition-colors flex items-center"
                 >

@@ -1,5 +1,5 @@
 import { db } from '@/utils';
-import { INVITATIONS, USER, QUIZ_SEQUENCES, TEST_PROGRESS } from '@/utils/schema';
+import { INVITATIONS, USER, QUIZ_SEQUENCES, TEST_PROGRESS, USER_IMAGES } from '@/utils/schema'; // ADDED: USER_IMAGES import
 import { NextResponse } from 'next/server';
 import { eq, and, sql } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
@@ -14,7 +14,7 @@ export async function GET(req) {
   const userId = userData.userId;
 
   try {
-    // Get all users invited by the current user
+    // Get all users invited by the current user with profile images
     const invitations = await db
       .select({
         id: INVITATIONS.id,
@@ -24,11 +24,17 @@ export async function GET(req) {
         username: USER.username,
         birthDate: USER.birthDate,
         gender: USER.gender,
-        profileImageUrl: USER.profileImageUrl,
+        // REMOVED: profileImageUrl from USER table
         isProfileComplete: USER.isProfileComplete,
+        // ADDED: profile image from USER_IMAGES
+        profileImageUrl: USER_IMAGES.image_url
       })
       .from(INVITATIONS)
       .leftJoin(USER, eq(INVITATIONS.user_id, USER.id))
+      .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+        eq(USER_IMAGES.user_id, INVITATIONS.user_id),
+        eq(USER_IMAGES.is_profile, true)
+      ))
       .where(eq(INVITATIONS.inviter_id, userId));
 
     // For each invited user, get their quiz completion status
@@ -54,6 +60,7 @@ export async function GET(req) {
 
         return {
           ...invitation,
+          profileImageUrl: invitation.profileImageUrl, // UPDATED: Now from USER_IMAGES
           quiz_sequence: quizSequence.length > 0 ? quizSequence[0] : null,
           test_progress: testProgress
         };

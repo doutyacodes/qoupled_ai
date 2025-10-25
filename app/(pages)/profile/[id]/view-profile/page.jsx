@@ -38,6 +38,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { encryptText } from '@/utils/encryption';
 import { motion } from 'framer-motion';
+import { BASE_IMAGE_URL } from '@/utils/constants';
 
 // Helper function to calculate age
 function calculateAge(birthDate) {
@@ -69,8 +70,6 @@ export default function ModernUserProfile() {
 
   const [showCompatibilityAlert, setShowCompatibilityAlert] = useState(false);
   const [compatibilityAlertMessage, setCompatibilityAlertMessage] = useState('');
-
-  const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
 
   useEffect(() => {
     async function fetchUserData() {

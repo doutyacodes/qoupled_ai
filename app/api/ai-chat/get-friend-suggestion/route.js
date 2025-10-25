@@ -7,9 +7,10 @@ import {
   AI_CHARACTERS,
   USER_AI_FRIENDS,
   USER_SUGGESTIONS,
-  USER_PREFERENCE_VALUES, // FIXED: Changed from USER_PREFERENCES
+  USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
-  PREFERENCE_OPTIONS
+  PREFERENCE_OPTIONS,
+  USER_IMAGES // ADDED: Import USER_IMAGES table
 } from "@/utils/schema";
 import { db } from "@/utils";
 import { eq, and, ne, inArray, isNotNull, notInArray } from "drizzle-orm";
@@ -49,7 +50,6 @@ export async function POST(request) {
         username: USER.username,
         gender: USER.gender,
         birthDate: USER.birthDate,
-        profileImageUrl: USER.profileImageUrl,
         country: USER.country,
         state: USER.state,
         city: USER.city,
@@ -163,7 +163,6 @@ export async function POST(request) {
         .select({
           userId: USER.id,
           username: USER.username,
-          profileImageUrl: USER.profileImageUrl,
           gender: USER.gender,
           birthDate: USER.birthDate,
           country: USER.country,
@@ -194,7 +193,6 @@ export async function POST(request) {
         .select({
           userId: USER.id,
           username: USER.username,
-          profileImageUrl: USER.profileImageUrl,
           gender: USER.gender,
           birthDate: USER.birthDate,
           country: USER.country,
@@ -240,6 +238,29 @@ export async function POST(request) {
     console.log("🎲 RANDOM INDEX:", randomIndex);
     console.log("👤 SUGGESTED USER:", suggestedUser);
 
+    console.log("🖼️ STEP 6.1: Getting profile images for suggested user...");
+    
+    // NEW: Get profile image for suggested user
+    const suggestedUserProfileImage = await db
+      .select({
+        image_url: USER_IMAGES.image_url
+      })
+      .from(USER_IMAGES)
+      .where(and(
+        eq(USER_IMAGES.user_id, suggestedUser.userId),
+        eq(USER_IMAGES.is_profile, true)
+      ))
+      .limit(1)
+      .execute();
+
+    console.log("🖼️ SUGGESTED USER PROFILE IMAGE:", suggestedUserProfileImage);
+
+    const suggestedUserProfileImageUrl = suggestedUserProfileImage.length > 0 
+      ? suggestedUserProfileImage[0].image_url 
+      : null;
+
+    console.log("🖼️ SUGGESTED USER PROFILE IMAGE URL:", suggestedUserProfileImageUrl);
+
     console.log("🔗 STEP 7: Finding common AI friends...");
     
     const suggestedUserAiFriends = await db
@@ -276,12 +297,11 @@ export async function POST(request) {
 
     console.log("⚙️ STEP 8: Getting common preferences...");
     
-    // FIXED: Step 8 - Get common preferences with proper query structure
     let currentUserPrefs = [];
     let suggestedUserPrefs = [];
     
     try {
-      // Current user preferences - FIXED query structure
+      // Current user preferences
       currentUserPrefs = await db
         .select({
           categoryId: USER_PREFERENCE_VALUES.categoryId,
@@ -299,7 +319,7 @@ export async function POST(request) {
 
       console.log("⚙️ CURRENT USER PREFS:", currentUserPrefs);
 
-      // Suggested user preferences - FIXED query structure
+      // Suggested user preferences
       suggestedUserPrefs = await db
         .select({
           categoryId: USER_PREFERENCE_VALUES.categoryId,
@@ -377,7 +397,7 @@ export async function POST(request) {
       user: {
         id: suggestedUser.userId,
         username: suggestedUser.username,
-        profileImageUrl: suggestedUser.profileImageUrl,
+        profileImageUrl: suggestedUserProfileImageUrl, // UPDATED: Use from USER_IMAGES
         gender: suggestedUser.gender,
         age: calculateAge(suggestedUser.birthDate),
         location: `${suggestedUser.city || ''}, ${suggestedUser.country || ''}`.trim().replace(/^,\s*/, ''),

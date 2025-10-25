@@ -16,14 +16,13 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
+import { BASE_IMAGE_URL } from '@/utils/constants';
 
 const GroupChatsPage = () => {
   const router = useRouter();
   const [groupChats, setGroupChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
 
   useEffect(() => {
     const fetchGroupChats = async () => {

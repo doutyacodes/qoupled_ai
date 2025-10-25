@@ -24,6 +24,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
+import { BASE_IMAGE_URL } from '@/utils/constants';
 
 const EnhancedAIChat = () => {
   const params = useParams();
@@ -44,8 +45,6 @@ const EnhancedAIChat = () => {
   const [respondingToSuggestion, setRespondingToSuggestion] = useState({});
   
   const messagesEndRef = useRef(null);
-
-  const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
 
   // Initialize chat
   useEffect(() => {

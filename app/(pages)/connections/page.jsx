@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 import ModernNavbar from "@/app/_components/Navbar";
 import Image from "next/image";
-
-const BASE_IMAGE_URL = "https://wowfy.in/wowfy_app_codebase/photos/";
+import { BASE_IMAGE_URL } from "@/utils/constants";
 
 export default function ConnectionsPage() {
   const router = useRouter();

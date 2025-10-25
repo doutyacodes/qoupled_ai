@@ -1,6 +1,6 @@
 // app/api/conversations/route.js
 import { db } from '@/utils';
-import { CONVERSATIONS, CONVERSATION_PARTICIPANTS, MESSAGES, USER } from '@/utils/schema';
+import { CONVERSATIONS, CONVERSATION_PARTICIPANTS, MESSAGES, USER, USER_IMAGES } from '@/utils/schema'; // ADDED: USER_IMAGES import
 import { NextResponse } from 'next/server';
 import { and, eq, or, sql, desc, not, inArray, is, isNull } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
@@ -63,7 +63,7 @@ export async function GET(req) {
                     .limit(1)
                     .execute();
 
-                // For non-group chats, get the other participant
+                // For non-group chats, get the other participant with profile image
                 let otherUser = null;
                 if (!conv.conversation.is_group) {
                     const otherParticipant = await db
@@ -87,12 +87,18 @@ export async function GET(req) {
                             .select({
                                 id: USER.id,
                                 username: USER.username,
-                                profileImageUrl: USER.profileImageUrl,
+                                // REMOVED: profileImageUrl from USER table
                                 country: USER.country,
                                 state: USER.state,
                                 city: USER.city,
+                                // ADDED: profile image from USER_IMAGES
+                                profileImageUrl: USER_IMAGES.image_url
                             })
                             .from(USER)
+                            .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+                                eq(USER_IMAGES.user_id, USER.id),
+                                eq(USER_IMAGES.is_profile, true)
+                            ))
                             .where(eq(USER.id, otherUserId))
                             .limit(1)
                             .execute();

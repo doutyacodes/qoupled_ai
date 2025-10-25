@@ -1,5 +1,6 @@
 "use client";
 
+import { BASE_IMAGE_URL } from "@/utils/constants";
 import { encryptText } from "@/utils/encryption";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -139,7 +140,6 @@ export default function ModernMyMatches() {
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const BASE_IMAGE_URL = "https://wowfy.in/wowfy_app_codebase/photos/";
 
   // Animation variants
   const containerVariants = {

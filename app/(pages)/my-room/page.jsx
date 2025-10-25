@@ -26,8 +26,7 @@ import {
 } from "@/app/_services/chatService";
 import ConnectedUsersList from "@/app/_components/ConnectedUsersList"; // Import the new component
 import { socketService } from "@/app/_services/socketService";
-
-const BASE_IMAGE_URL = "https://wowfy.in/wowfy_app_codebase/photos/";
+import { BASE_IMAGE_URL } from "@/utils/constants";
 
 const MyRoomsPage = () => {
   const [activeTab, setActiveTab] = useState("recent");

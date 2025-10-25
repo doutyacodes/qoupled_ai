@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye,
@@ -31,6 +31,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import GlobalApi from "@/app/_services/GlobalApi";
 import { encryptText } from "@/utils/encryption";
+import ImageUploadService from "@/utils/ImageUploadService";
 
 const ModernSignup = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -38,8 +39,14 @@ const ModernSignup = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [currentSection, setCurrentSection] = useState(0);
-  const [profileImage, setProfileImage] = useState(null);
-  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  // const [profileImage, setProfileImage] = useState(null);
+  // const [profileImagePreview, setProfileImagePreview] = useState(null);
+
+  const [uploadedImages, setUploadedImages] = useState([]); // { file, preview, url, isProfile }
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState({})
+  const isUploadingRef = useRef(false);
+
 
   const router = useRouter();
 
@@ -123,10 +130,10 @@ const ModernSignup = () => {
       fields: ["educationLevel", "occupation", "company"],
     },
     {
-      title: "Profile & Languages",
-      subtitle: "Complete your profile",
+      title: "Profile Photos & Details", // UPDATED TITLE
+      subtitle: "Add your photos and complete your profile",
       icon: <Image className="h-6 w-6" />,
-      fields: ["profileImage", "bio", "languages"],
+      fields: ["profileImages", "bio", "languages"], // UPDATED FIELD NAME
     },
   ];
 
@@ -154,39 +161,170 @@ const ModernSignup = () => {
     }));
   }, []);
 
-  const handleImageChange = useCallback((e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors((prev) => ({
-          ...prev,
-          profileImage: "Image size should be less than 5MB",
-        }));
-        return;
+  // Handle adding new images (up to 3)
+  const handleImageSelect = useCallback(async (e) => {
+    const files = Array.from(e.target.files);
+    
+    if (uploadedImages.length + files.length > 3) {
+      setErrors(prev => ({
+        ...prev,
+        images: 'You can upload maximum 3 images'
+      }));
+      return;
+    }
+
+    // Validate all files first
+    const validationErrors = [];
+    const validFiles = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const validation = ImageUploadService.validateImage(files[i]);
+      if (validation.isValid) {
+        validFiles.push(files[i]);
+      } else {
+        validationErrors.push(`Image ${i + 1}: ${validation.error}`);
       }
+    }
 
-      if (!file.type.startsWith("image/")) {
-        setErrors((prev) => ({
-          ...prev,
-          profileImage: "Please upload a valid image file",
-        }));
-        return;
-      }
+    if (validationErrors.length > 0) {
+      setErrors(prev => ({
+        ...prev,
+        images: validationErrors.join(', ')
+      }));
+      return;
+    }
 
-      setProfileImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+    // Create previews for valid files
+    try {
+      const newImages = await Promise.all(
+        validFiles.map(async (file, index) => {
+          const preview = await ImageUploadService.createPreviewUrl(file);
+          return {
+            id: Date.now() + index,
+            file,
+            preview,
+            url: null,
+            isProfile: uploadedImages.length === 0 && index === 0 // First image is profile by default
+          };
+        })
+      );
 
-      setErrors((prev) => {
+      setUploadedImages(prev => [...prev, ...newImages]);
+      setErrors(prev => {
         const newErrors = { ...prev };
-        delete newErrors.profileImage;
+        delete newErrors.images;
         return newErrors;
       });
+    } catch (error) {
+      setErrors(prev => ({
+        ...prev,
+        images: 'Failed to process images'
+      }));
     }
+  }, [uploadedImages.length]);
+
+  // Remove an image
+  const handleRemoveImage = useCallback((imageId) => {
+    setUploadedImages(prev => {
+      const filtered = prev.filter(img => img.id !== imageId);
+      
+      // If we removed the profile image, make the first remaining image the profile
+      if (filtered.length > 0 && !filtered.some(img => img.isProfile)) {
+        filtered[0].isProfile = true;
+      }
+      
+      return filtered;
+    });
   }, []);
+
+  // Set an image as profile image
+  const handleSetProfileImage = useCallback((imageId) => {
+    setUploadedImages(prev =>
+      prev.map(img => ({
+        ...img,
+        isProfile: img.id === imageId
+      }))
+    );
+  }, []);
+
+  const uploadAllImages = useCallback(async () => {
+    if (isUploadingRef.current) {
+      console.warn("Upload already in progress, skipping duplicate call");
+      return uploadedImages
+        .filter(img => img.url)
+        .map(img => ({ url: img.url, isProfile: img.isProfile }));
+    }
+
+    console.log("Starting uploadAllImages with", uploadedImages.length, "images");
+
+    if (uploadedImages.length === 0) {
+      throw new Error('No images to upload');
+    }
+
+    // Check if all images already have URLs
+    const allHaveUrls = uploadedImages.every(img => img.url);
+    if (allHaveUrls) {
+      console.log("All images already uploaded, returning existing URLs");
+      return uploadedImages.map(img => ({
+        url: img.url,
+        isProfile: img.isProfile
+      }));
+    }
+
+    isUploadingRef.current = true;
+    setUploadingImages(true);
+
+    try {
+      const imagesToUpload = uploadedImages.filter(img => !img.url);
+      console.log("Images to upload:", imagesToUpload.length);
+
+      const uploadResults = await ImageUploadService.uploadMultipleImagesWithStatus(
+        imagesToUpload.map(img => img.file),
+        'photo'
+      );
+
+      console.log("Upload results:", uploadResults);
+
+      const failedUploads = [];
+
+      // Build final array - combine already uploaded + newly uploaded
+      const finalUrls = uploadedImages.map(img => {
+        if (img.url) {
+          // Already has URL, use it
+          return { url: img.url, isProfile: img.isProfile };
+        } else {
+          // Find corresponding upload result
+          const uploadIndex = imagesToUpload.findIndex(item => item.id === img.id);
+          const result = uploadResults[uploadIndex];
+          
+          if (result && result.success) {
+            return { url: result.url, isProfile: img.isProfile };
+          } else {
+            failedUploads.push(`Image ${uploadIndex + 1}: ${result?.error || 'Unknown error'}`);
+            return null;
+          }
+        }
+      }).filter(Boolean); // Remove null entries
+
+      if (failedUploads.length > 0) {
+        console.error('Some uploads failed:', failedUploads);
+        throw new Error(failedUploads.join(', '));
+      }
+
+      if (finalUrls.length === 0) {
+        throw new Error('No images were successfully uploaded');
+      }
+
+      console.log("Final URLs to send:", finalUrls);
+      return finalUrls;
+    } catch (error) {
+      console.error('Image upload error:', error);
+      throw error;
+    } finally {
+      setUploadingImages(false);
+      isUploadingRef.current = false;
+    }
+  }, [uploadedImages]);
 
   const validateCurrentSection = useCallback(() => {
     const newErrors = {};
@@ -317,6 +455,15 @@ const ModernSignup = () => {
       if (field === "bio" && formData.bio && formData.bio.length > 500) {
         newErrors.bio = "Bio should not exceed 500 characters";
       }
+      if (field === "profileImages") {
+        if (uploadedImages.length === 0) {
+          newErrors.profileImages = "At least one profile photo is required";
+        } else if (uploadedImages.length > 3) {
+          newErrors.profileImages = "Maximum 3 photos allowed";
+        } else if (!uploadedImages.some(img => img.isProfile)) {
+          newErrors.profileImages = "Please select a profile photo";
+        }
+      }
     });
 
     setErrors(newErrors);
@@ -340,8 +487,38 @@ const ModernSignup = () => {
   const handleSubmit = useCallback(async () => {
     if (!validateCurrentSection()) return;
 
+    if (uploadedImages.length === 0) {
+      setErrors(prev => ({
+        ...prev,
+        profileImages: "At least one profile photo is required"
+      }));
+      return;
+    }
+
+    if (isLoading || isUploadingRef.current) {
+      console.warn("Already processing, ignoring duplicate submit");
+      return;
+    }
+
     try {
       setIsLoading(true);
+
+      // Upload all images first
+      toast.loading('Uploading your photos...', { id: 'image-upload' });
+      
+      let finalImageUrls;
+      try {
+        finalImageUrls = await uploadAllImages();
+        
+        if (!finalImageUrls || finalImageUrls.length === 0) {
+          throw new Error('No images were successfully uploaded');
+        }
+        
+        toast.success('Photos ready!', { id: 'image-upload' });
+      } catch (uploadError) {
+        toast.error(uploadError.message || 'Failed to upload photos', { id: 'image-upload' });
+        throw uploadError;
+      }
 
       // Encrypt password before sending
       const encryptedPassword = encryptText(formData.password);
@@ -367,8 +544,10 @@ const ModernSignup = () => {
         company: formData.company || null,
         bio: formData.bio || null,
         languages: formData.languages,
-        profileImageUrl: profileImagePreview, // In production, upload to S3/Cloudinary first
+        images: finalImageUrls
       };
+
+      toast.loading('Creating your account...', { id: 'signup' });
 
       const response = await GlobalApi.CreateUserWithPreferences(signupData);
 
@@ -376,15 +555,14 @@ const ModernSignup = () => {
         const { token } = response.data.data;
         localStorage.setItem("token", token);
 
-        toast.success("Welcome to Qoupled! Account created successfully!");
+        toast.success("Welcome to Qoupled! Account created successfully!", { id: 'signup' });
 
-        // Redirect to quiz section
         setTimeout(() => {
           router.push("/quiz-section/1");
         }, 1500);
       } else {
         const errorMessage = response.data?.message || "Failed to create account.";
-        toast.error(errorMessage);
+        toast.error(errorMessage, { id: 'signup' });
       }
     } catch (error) {
       console.error("Signup error:", error);
@@ -400,7 +578,7 @@ const ModernSignup = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [formData, profileImagePreview, validateCurrentSection, router]);
+  }, [formData, uploadedImages, validateCurrentSection, router, uploadAllImages]);
 
   const getFieldIcon = (fieldName) => {
     const icons = {
@@ -520,112 +698,165 @@ const ModernSignup = () => {
       },
     };
 
-    const config = fieldConfigs[fieldName];
-    if (!config) return null;
 
-    if (fieldName === "profileImage") {
+
+    if (fieldName === "profileImages") {
       return (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="space-y-2"
+          className="space-y-4"
         >
           <label className="block text-sm font-semibold text-gray-700">
-            Profile Picture (Optional)
+            Profile Photos
+            <span className="text-red-500 ml-1">*</span>
+            <span className="text-xs font-normal text-gray-500 ml-2">
+              (Minimum 1, Maximum 3)
+            </span>
           </label>
-          <div className="flex items-center gap-4">
-            {profileImagePreview ? (
-              <div className="relative">
-                <img
-                  src={profileImagePreview}
-                  alt="Preview"
-                  className="w-24 h-24 rounded-full object-cover border-4 border-rose-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProfileImage(null);
-                    setProfileImagePreview(null);
-                  }}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                >
-                  <AlertCircle className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">
-                <Image className="h-8 w-8 text-gray-400" />
-              </div>
-            )}
-            <label className="flex-1 cursor-pointer">
-              <div className="flex items-center justify-center gap-2 py-3 px-6 bg-rose-50 border-2 border-rose-200 rounded-2xl hover:bg-rose-100 transition-colors">
-                <Upload className="h-5 w-5 text-rose-600" />
-                <span className="text-rose-600 font-semibold">
-                  Upload Photo
+
+          {/* Image Grid Display */}
+          <div className="grid grid-cols-3 gap-4">
+            {uploadedImages.map((image) => (
+              <motion.div
+                key={image.id}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="relative group"
+              >
+                <div className="aspect-square rounded-2xl overflow-hidden border-4 border-gray-200 relative">
+                  <img
+                    src={image.preview}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                  
+                  {/* Profile Badge */}
+                  {image.isProfile && (
+                    <div className="absolute top-2 left-2 bg-rose-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                      <Heart className="h-3 w-3 fill-current" />
+                      Profile
+                    </div>
+                  )}
+
+                  {/* Hover Overlay */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                    {!image.isProfile && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetProfileImage(image.id)}
+                        className="p-2 bg-white rounded-full hover:bg-rose-50 transition-colors"
+                        title="Set as profile photo"
+                      >
+                        <Heart className="h-4 w-4 text-rose-500" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(image.id)}
+                      className="p-2 bg-white rounded-full hover:bg-red-50 transition-colors"
+                      title="Remove photo"
+                    >
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            {/* Upload Button */}
+            {uploadedImages.length < 3 && (
+              <label className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 hover:border-rose-400 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-rose-50 group">
+                <Upload className="h-8 w-8 text-gray-400 group-hover:text-rose-500 transition-colors" />
+                <span className="text-sm font-medium text-gray-600 group-hover:text-rose-600">
+                  Add Photo
                 </span>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-            </label>
+                <span className="text-xs text-gray-400">
+                  {uploadedImages.length}/3
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  multiple
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
-          {errors.profileImage && (
+
+          {/* Instructions */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="flex gap-3">
+              <Sparkles className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-blue-900">Photo Tips:</p>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>• Upload 1-3 clear photos of yourself</li>
+                  <li>• First photo will be your main profile picture</li>
+                  <li>• Click the heart icon to change profile photo</li>
+                  <li>• Max size: 5MB per photo (JPG, PNG, WebP)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {errors.profileImages && (
             <motion.p
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-red-500 text-sm flex items-center"
             >
               <AlertCircle className="h-4 w-4 mr-1" />
-              {errors.profileImage}
+              {errors.profileImages}
             </motion.p>
           )}
-          <p className="text-xs text-gray-500">
-            Max size: 5MB. Formats: JPG, PNG, GIF
-          </p>
         </motion.div>
       );
     }
 
-    if (fieldName === "languages") {
-      return (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-2"
-        >
-          <label className="block text-sm font-semibold text-gray-700">
-            Languages You Speak (Optional)
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {availableLanguages.map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                onClick={() => handleLanguageToggle(lang)}
-                className={`py-2 px-4 rounded-xl border-2 transition-all duration-200 ${
-                  formData.languages.includes(lang)
-                    ? "bg-rose-500 border-rose-500 text-white"
-                    : "bg-white border-gray-200 text-gray-700 hover:border-rose-300"
-                }`}
-              >
-                {lang}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500">
-            Selected:{" "}
-            {formData.languages.length > 0
-              ? formData.languages.join(", ")
-              : "None"}
-          </p>
-        </motion.div>
-      );
-    }
+    // if (fieldName === "languages") {
+    //   return (
+    //     <motion.div
+    //       initial={{ opacity: 0, y: 20 }}
+    //       animate={{ opacity: 1, y: 0 }}
+    //       transition={{ duration: 0.3 }}
+    //       className="space-y-2"
+    //     >
+    //       <label className="block text-sm font-semibold text-gray-700">
+    //         Languages You Speak (Optional)
+    //       </label>
+    //       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+    //         {availableLanguages.map((lang) => (
+    //           <button
+    //             key={lang}
+    //             type="button"
+    //             onClick={() => handleLanguageToggle(lang)}
+    //             className={`py-2 px-4 rounded-xl border-2 transition-all duration-200 ${
+    //               formData.languages.includes(lang)
+    //                 ? "bg-rose-500 border-rose-500 text-white"
+    //                 : "bg-white border-gray-200 text-gray-700 hover:border-rose-300"
+    //             }`}
+    //           >
+    //             {lang}
+    //           </button>
+    //         ))}
+    //       </div>
+    //       <p className="text-xs text-gray-500">
+    //         Selected:{" "}
+    //         {formData.languages.length > 0
+    //           ? formData.languages.join(", ")
+    //           : "None"}
+    //       </p>
+    //     </motion.div>
+    //   );
+    // }
+
+    const config = fieldConfigs[fieldName];
+    if (!config) return null;
 
     return (
       <motion.div

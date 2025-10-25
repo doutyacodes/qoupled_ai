@@ -18,6 +18,7 @@ import {
   Zap,
   Clock
 } from 'lucide-react';
+import { BASE_IMAGE_URL } from '@/utils/constants';
 
 const GroupChatPage = () => {
   const params = useParams();
@@ -36,8 +37,7 @@ const GroupChatPage = () => {
   const [showParticipants, setShowParticipants] = useState(false);
   
   const messagesEndRef = useRef(null);
-  const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
-
+  
   // Load group chat data
   useEffect(() => {
     const loadGroupChat = async () => {

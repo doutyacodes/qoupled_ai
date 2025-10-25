@@ -9,7 +9,8 @@ import {
   GROUP_CHAT_MESSAGES,
   AI_CHARACTERS,
   USER,
-  USER_AI_FRIENDS
+  USER_AI_FRIENDS,
+  USER_IMAGES // ADDED: Import USER_IMAGES table
 } from "@/utils/schema";
 import { db } from "@/utils";
 import { eq, and, inArray } from "drizzle-orm";
@@ -76,11 +77,28 @@ export async function POST(request) {
         .where(eq(USER_SUGGESTIONS.id, suggestionId))
         .execute();
 
-      // Get AI character and users info
-      const [aiCharacter, initiatorUser, suggestedUser] = await Promise.all([
+      // Get AI character and users info with profile images
+      const [aiCharacter, initiatorUser, suggestedUser, initiatorProfileImage, suggestedProfileImage] = await Promise.all([
         db.select().from(AI_CHARACTERS).where(eq(AI_CHARACTERS.id, aiCharacterId)).limit(1).execute(),
         db.select().from(USER).where(eq(USER.id, userId)).limit(1).execute(),
-        db.select().from(USER).where(eq(USER.id, suggestedUserId)).limit(1).execute()
+        db.select().from(USER).where(eq(USER.id, suggestedUserId)).limit(1).execute(),
+        // NEW: Get profile images for both users
+        db.select({ image_url: USER_IMAGES.image_url })
+          .from(USER_IMAGES)
+          .where(and(
+            eq(USER_IMAGES.user_id, userId),
+            eq(USER_IMAGES.is_profile, true)
+          ))
+          .limit(1)
+          .execute(),
+        db.select({ image_url: USER_IMAGES.image_url })
+          .from(USER_IMAGES)
+          .where(and(
+            eq(USER_IMAGES.user_id, suggestedUserId),
+            eq(USER_IMAGES.is_profile, true)
+          ))
+          .limit(1)
+          .execute()
       ]);
 
       if (aiCharacter.length === 0 || initiatorUser.length === 0 || suggestedUser.length === 0) {
@@ -93,6 +111,10 @@ export async function POST(request) {
       const ai = aiCharacter[0];
       const initiator = initiatorUser[0];
       const suggested = suggestedUser[0];
+
+      // Get profile image URLs
+      const initiatorProfileImageUrl = initiatorProfileImage.length > 0 ? initiatorProfileImage[0].image_url : null;
+      const suggestedProfileImageUrl = suggestedProfileImage.length > 0 ? suggestedProfileImage[0].image_url : null;
 
       // Get mutual AI friends
       const [initiatorAiFriends, suggestedUserAiFriends] = await Promise.all([
@@ -230,13 +252,13 @@ export async function POST(request) {
             { 
               id: initiator.id, 
               username: initiator.username, 
-              profileImageUrl: initiator.profileImageUrl,
+              profileImageUrl: initiatorProfileImageUrl, // UPDATED: Use from USER_IMAGES
               role: 'admin'
             },
             { 
               id: suggested.id, 
               username: suggested.username, 
-              profileImageUrl: suggested.profileImageUrl,
+              profileImageUrl: suggestedProfileImageUrl, // UPDATED: Use from USER_IMAGES
               role: 'member'
             }
           ],
@@ -282,7 +304,7 @@ export async function GET(request) {
   const userId = userData.userId || userData.id;
 
   try {
-    // Get pending invitations for this user
+    // Get pending invitations for this user with profile images
     const invitations = await db
       .select({
         id: GROUP_CHAT_INVITATIONS.id,
@@ -292,20 +314,37 @@ export async function GET(request) {
         aiCharacterName: AI_CHARACTERS.displayName,
         aiCharacterAvatar: AI_CHARACTERS.avatarUrl,
         initiatorUsername: USER.username,
-        initiatorAvatar: USER.profileImageUrl
+        // UPDATED: Get profile image from USER_IMAGES instead of USER table
+        initiatorProfileImage: USER_IMAGES.image_url
       })
       .from(GROUP_CHAT_INVITATIONS)
       .innerJoin(AI_CHARACTERS, eq(GROUP_CHAT_INVITATIONS.aiCharacterId, AI_CHARACTERS.id))
       .innerJoin(USER, eq(GROUP_CHAT_INVITATIONS.initiatorUserId, USER.id))
+      .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+        eq(USER_IMAGES.user_id, GROUP_CHAT_INVITATIONS.initiatorUserId),
+        eq(USER_IMAGES.is_profile, true)
+      ))
       .where(and(
         eq(GROUP_CHAT_INVITATIONS.invitedUserId, userId),
         eq(GROUP_CHAT_INVITATIONS.status, 'pending')
       ))
       .execute();
 
+    // Format the response with proper profile image URLs
+    const formattedInvitations = invitations.map(invitation => ({
+      id: invitation.id,
+      invitationMessage: invitation.invitationMessage,
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
+      aiCharacterName: invitation.aiCharacterName,
+      aiCharacterAvatar: invitation.aiCharacterAvatar,
+      initiatorUsername: invitation.initiatorUsername,
+      initiatorAvatar: invitation.initiatorProfileImage // UPDATED: Use from USER_IMAGES
+    }));
+
     return NextResponse.json({
       success: true,
-      invitations: invitations
+      invitations: formattedInvitations
     }, { status: 200 });
 
   } catch (error) {

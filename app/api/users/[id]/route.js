@@ -10,10 +10,11 @@ import {
   LANGUAGES,
   USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
-  PREFERENCE_OPTIONS
+  PREFERENCE_OPTIONS,
+  USER_IMAGES
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
 
 export async function GET(req, { params }) {
@@ -33,11 +34,55 @@ export async function GET(req, { params }) {
 
   try {
     // ====================================
-    // GET USER BASIC INFO
+    // GET USER BASIC INFO WITH PROFILE IMAGE
     // ====================================
     const user = await db
-      .select()
+      .select({
+        id: USER.id,
+        username: USER.username,
+        birthDate: USER.birthDate,
+        gender: USER.gender,
+        
+        // NEW PRICING FIELDS
+        currentPlan: USER.currentPlan,
+        isVerified: USER.isVerified,
+        verificationDate: USER.verificationDate,
+        profileBoostActive: USER.profileBoostActive,
+        profileBoostEnds: USER.profileBoostEnds,
+        subscriptionStatus: USER.subscriptionStatus,
+        subscriptionEnds: USER.subscriptionEnds,
+
+        // Contact and verification fields
+        phone: USER.phone,
+        isPhoneVerified: USER.isPhoneVerified,
+        email: USER.email,
+        isEmailVerified: USER.isEmailVerified,
+        
+        // Location and personal details
+        country: USER.country,
+        state: USER.state,
+        city: USER.city,
+        religion: USER.religion,
+        caste: USER.caste,
+        
+        // Physical attributes
+        height: USER.height,
+        weight: USER.weight,
+        income: USER.income,
+        
+        // Profile status
+        isProfileVerified: USER.isProfileVerified,
+        isProfileComplete: USER.isProfileComplete,
+        
+        // Profile image from USER_IMAGES (not USER table)
+        profileImageUrl: sql`COALESCE(${USER_IMAGES.image_url}, '')`.as('profileImageUrl')
+
+      })
       .from(USER)
+      .leftJoin(USER_IMAGES, and(
+        eq(USER_IMAGES.user_id, USER.id),
+        eq(USER_IMAGES.is_profile, true)
+      ))
       .where(eq(USER.id, userId))
       .limit(1);
 
@@ -139,7 +184,7 @@ export async function GET(req, { params }) {
     const userData = {
       ...user[0],
       age,
-      lookingFor, // NEW: Add lookingFor preference
+      lookingFor, // Add lookingFor preference
       education,
       jobs,
       languages: userLanguages.map(lang => lang.language)

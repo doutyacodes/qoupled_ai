@@ -1,9 +1,9 @@
 "/api/compatability-results/[inviteUserId]"
 
 import { db } from '@/utils';
-import { TEST_PROGRESS, COMPATIBILITY_RESULTS, USER, USER_RED_FLAGS, ANSWERS, QUESTIONS } from '@/utils/schema';
+import { TEST_PROGRESS, COMPATIBILITY_RESULTS, USER, USER_RED_FLAGS, ANSWERS, QUESTIONS, USER_IMAGES } from '@/utils/schema'; // ADDED: USER_IMAGES import
 import { NextResponse } from 'next/server';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
 
 // Modified to fetch selected_answer_id as well
@@ -141,10 +141,14 @@ async function fetchInviterDetails(inviteUserId) {
     .select({
       username: USER.username,
       gender: USER.gender,
-      imageUrl: USER.profileImageUrl,
-      country: USER.country
+      country: USER.country,
+      imageUrl: sql`COALESCE(${USER_IMAGES.image_url}, '')`.as('profileImageUrl')
     })
     .from(USER)
+    .leftJoin(USER_IMAGES, and(
+      eq(USER_IMAGES.user_id, USER.id),
+      eq(USER_IMAGES.is_profile, true)
+    ))
     .where(eq(USER.id, inviteUserId))
     .execute();
 }

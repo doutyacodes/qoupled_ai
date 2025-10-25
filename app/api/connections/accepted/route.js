@@ -1,6 +1,6 @@
 // app/api/connections/accepted/route.js
 import { db } from '@/utils';
-import { CONNECTIONS, USER } from '@/utils/schema';
+import { CONNECTIONS, USER, USER_IMAGES } from '@/utils/schema'; // ADDED: USER_IMAGES import
 import { NextResponse } from 'next/server';
 import { eq, and, or } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
@@ -14,18 +14,20 @@ export async function GET(req) {
 
     const userData = authResult.decoded_Data;
     const userId = userData.userId;
-// console.log("userId",userId)
+    // console.log("userId",userId)
     try {
         // Fetch users with accepted connections to the current user (as sender)
         const receiverConnections = await db
             .select({
                 id: USER.id,
                 username: USER.username,
-                profileImageUrl: USER.profileImageUrl,
+                // profileImageUrl from USER table
                 country: USER.country,
                 state: USER.state,
                 city: USER.city,
                 connectionId: CONNECTIONS.connectionId,
+                // ADDED: profile image from USER_IMAGES
+                profileImageUrl: USER_IMAGES.image_url
             })
             .from(USER)
             .innerJoin(
@@ -36,6 +38,10 @@ export async function GET(req) {
                     eq(CONNECTIONS.status, 'accepted')
                 )
             )
+            .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+                eq(USER_IMAGES.user_id, USER.id),
+                eq(USER_IMAGES.is_profile, true)
+            ))
             .execute();
 
         // Fetch users with accepted connections to the current user (as receiver)
@@ -43,11 +49,13 @@ export async function GET(req) {
             .select({
                 id: USER.id,
                 username: USER.username,
-                profileImageUrl: USER.profileImageUrl,
+                //: profileImageUrl from USER table
                 country: USER.country,
                 state: USER.state,
                 city: USER.city,
                 connectionId: CONNECTIONS.connectionId,
+                //: profile image from USER_IMAGES
+                profileImageUrl: USER_IMAGES.image_url
             })
             .from(USER)
             .innerJoin(
@@ -58,6 +66,10 @@ export async function GET(req) {
                     eq(CONNECTIONS.status, 'accepted')
                 )
             )
+            .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+                eq(USER_IMAGES.user_id, USER.id),
+                eq(USER_IMAGES.is_profile, true)
+            ))
             .execute();
 
         // Combine both sets of connections

@@ -5,6 +5,7 @@ import ModernNavbar from '@/app/_components/Navbar';
 import { encryptText } from '@/utils/encryption';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
+import { BASE_IMAGE_URL } from '@/utils/constants';
 
 const InvitationsPage = () => {
   const [activeTab, setActiveTab] = useState('sent-invites');
@@ -18,8 +19,6 @@ const InvitationsPage = () => {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const itemsPerPage = 5;
-
-  const BASE_IMAGE_URL = 'https://wowfy.in/wowfy_app_codebase/photos/';
 
   useEffect(() => {
     fetchInvitedUsers();

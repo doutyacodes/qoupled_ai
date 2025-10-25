@@ -3,8 +3,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { MessageSquare, Users, ChevronRight, Loader2 } from "lucide-react";
 import { fetchConnectedUsers } from "@/app/_services/connectionService";
-
-const BASE_IMAGE_URL = "https://wowfy.in/wowfy_app_codebase/photos/";
+import { BASE_IMAGE_URL } from "@/utils/constants";
 
 const ConnectedUsersList = ({ onUserSelect }) => {
   const [isMobileView, setIsMobileView] = useState(false);

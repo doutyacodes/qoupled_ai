@@ -6,7 +6,8 @@ import {
   GROUP_CHAT_PARTICIPANTS,
   GROUP_CHAT_MESSAGES,
   AI_CHARACTERS,
-  USER
+  USER,
+  USER_IMAGES // ADDED: Import USER_IMAGES table
 } from "@/utils/schema";
 import { db } from "@/utils";
 import { eq, and, desc, ne, count } from "drizzle-orm";
@@ -54,17 +55,23 @@ export async function GET(request) {
     // Get additional details for each group chat
     const enrichedGroupChats = await Promise.all(
       userGroupChats.map(async (groupChat) => {
-        // Get other participants (excluding current user) - should be exactly 1 for friend group chats
+        // Get other participants (excluding current user) with profile images
         const otherParticipants = await db
           .select({
             userId: USER.id,
             username: USER.username,
-            profileImageUrl: USER.profileImageUrl,
+            // REMOVED: profileImageUrl from USER table
             role: GROUP_CHAT_PARTICIPANTS.role,
-            joinedAt: GROUP_CHAT_PARTICIPANTS.joinedAt
+            joinedAt: GROUP_CHAT_PARTICIPANTS.joinedAt,
+            // ADDED: profile image from USER_IMAGES
+            profileImageUrl: USER_IMAGES.image_url
           })
           .from(GROUP_CHAT_PARTICIPANTS)
           .innerJoin(USER, eq(GROUP_CHAT_PARTICIPANTS.userId, USER.id))
+          .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+            eq(USER_IMAGES.user_id, GROUP_CHAT_PARTICIPANTS.userId),
+            eq(USER_IMAGES.is_profile, true)
+          ))
           .where(and(
             eq(GROUP_CHAT_PARTICIPANTS.groupChatId, groupChat.groupChatId),
             eq(GROUP_CHAT_PARTICIPANTS.isActive, true),
@@ -158,7 +165,13 @@ export async function GET(request) {
           joinedAt: groupChat.joinedAt,
           
           // Participants
-          otherParticipants: otherParticipants,
+          otherParticipants: otherParticipants.map(participant => ({
+            id: participant.userId,
+            username: participant.username,
+            profileImageUrl: participant.profileImageUrl, // UPDATED: Now from USER_IMAGES
+            role: participant.role,
+            joinedAt: participant.joinedAt
+          })),
           totalParticipants: otherParticipants.length + 1, // +1 for current user
           
           // AI Characters

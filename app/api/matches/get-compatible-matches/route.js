@@ -12,7 +12,8 @@ import {
   USER_MATCHING_MULTI_PREFERENCES,
   USER_RANGE_PREFERENCES,
   PREFERENCE_CATEGORIES,
-  PREFERENCE_OPTIONS
+  PREFERENCE_OPTIONS,
+  USER_IMAGES // ADDED: Import USER_IMAGES table
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { eq, and, inArray, desc, asc, not, sql, or, isNull } from 'drizzle-orm';
@@ -106,10 +107,24 @@ export async function GET(req) {
     // Filter out the current user
     const filteredUserIds = uniqueUserIds.filter(id => id !== userId);
 
-    // Step 4: Get user details for these compatible users
+    // Step 4: Get user details for these compatible users with profile images
     const userDetails = await db
-      .select()
+      .select({
+        id: USER.id,
+        username: USER.username,
+        birthDate: USER.birthDate,
+        gender: USER.gender,
+        height: USER.height,
+        isProfileComplete: USER.isProfileComplete,
+        // REMOVED: profileImageUrl from USER table
+        // ADDED: profile image from USER_IMAGES
+        profileImageUrl: USER_IMAGES.image_url
+      })
       .from(USER)
+      .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+        eq(USER_IMAGES.user_id, USER.id),
+        eq(USER_IMAGES.is_profile, true)
+      ))
       .where(inArray(USER.id, filteredUserIds));
 
     // Step 5: Get the current user's matching preferences
@@ -461,7 +476,7 @@ export async function GET(req) {
         username: user.username,
         birthDate: user.birthDate,
         gender: user.gender,
-        imageUrl: user.profileImageUrl,
+        imageUrl: user.profileImageUrl, // UPDATED: Now from USER_IMAGES
         mbti: {
           type: mbtiType,
           compatibilityTier,

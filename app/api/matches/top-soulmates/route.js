@@ -14,10 +14,11 @@ import {
   QUIZ_SEQUENCES,
   USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
-  PREFERENCE_OPTIONS
+  PREFERENCE_OPTIONS,
+  USER_IMAGES // ADDED: Import USER_IMAGES table
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
-import { and, eq, ne, inArray, notInArray, isNotNull, or } from 'drizzle-orm';
+import { and, eq, ne, inArray, notInArray, isNotNull, or, sql } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
 
 // MBTI compatibility matrix for personality-based matching
@@ -360,7 +361,6 @@ export async function GET(req) {
           username: USER.username,
           birthDate: USER.birthDate,
           gender: USER.gender,
-          profileImageUrl: USER.profileImageUrl,
           country: USER.country,
           state: USER.state,
           city: USER.city,
@@ -369,10 +369,15 @@ export async function GET(req) {
           weight: USER.weight,
           income: USER.income,
           isProfileVerified: USER.isProfileVerified,
-          isProfileComplete: USER.isProfileComplete
+          isProfileComplete: USER.isProfileComplete,
+          profileImageUrl: sql`MAX(${USER_IMAGES.image_url})`.as('profileImageUrl')
         })
         .from(USER)
         .innerJoin(TEST_PROGRESS, eq(TEST_PROGRESS.user_id, USER.id))
+        .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+          eq(USER_IMAGES.user_id, USER.id),
+          eq(USER_IMAGES.is_profile, true)
+        ))
         .where(
           and(
             ne(USER.id, currentUserId),
@@ -509,7 +514,6 @@ export async function GET(req) {
           username: USER.username,
           birthDate: USER.birthDate,
           gender: USER.gender,
-          profileImageUrl: USER.profileImageUrl,
           country: USER.country,
           state: USER.state,
           city: USER.city,
@@ -519,10 +523,15 @@ export async function GET(req) {
           income: USER.income,
           isProfileVerified: USER.isProfileVerified,
           isProfileComplete: USER.isProfileComplete,
-          mbtiType: QUIZ_SEQUENCES.type_sequence
+          mbtiType: QUIZ_SEQUENCES.type_sequence,
+          profileImageUrl: sql`MAX(${USER_IMAGES.image_url})`.as('profileImageUrl')
         })
         .from(USER)
         .innerJoin(QUIZ_SEQUENCES, eq(QUIZ_SEQUENCES.user_id, USER.id))
+        .leftJoin(USER_IMAGES, and( // ADDED: Join with USER_IMAGES table
+          eq(USER_IMAGES.user_id, USER.id),
+          eq(USER_IMAGES.is_profile, true)
+        ))
         .where(
           and(
             ne(USER.id, currentUserId),
