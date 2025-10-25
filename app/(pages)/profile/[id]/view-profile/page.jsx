@@ -298,7 +298,7 @@ export default function ModernUserProfile() {
       icon: <Heart className="h-5 w-5" />,
       alert: compatibilityScore && typeof compatibilityScore !== 'number'
     },
-    { label: "Profile Views", value: "1.2k", icon: <User className="h-5 w-5" /> }
+    // { label: "Profile Views", value: "1.2k", icon: <User className="h-5 w-5" /> }
   ];
 
   // Personal info items with lookingFor added
