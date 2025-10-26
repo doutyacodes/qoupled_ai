@@ -10,7 +10,9 @@ import {
   USER_PREFERENCE_VALUES, 
   PREFERENCE_CATEGORIES, 
   PREFERENCE_OPTIONS, 
-  USER_IMAGES
+  USER_IMAGES,
+  RELIGIONS,
+  CASTES_OR_DENOMINATIONS
 } from "@/utils/schema";
 import { eq, and } from "drizzle-orm";
 import jwt from "jsonwebtoken";
@@ -245,6 +247,69 @@ export async function POST(req) {
       }
 
       const userId = result.insertId;
+
+      // Handle religion - find existing or create new
+      let religionId = null;
+      if (religion && religion.trim()) {
+        // Check if religion exists
+        const existingReligion = await db
+          .select()
+          .from(RELIGIONS)
+          .where(eq(RELIGIONS.name, religion.trim()))
+          .limit(1);
+
+        if (existingReligion.length > 0) {
+          religionId = existingReligion[0].id;
+        } else {
+          // Create new religion (needs admin approval)
+          const [newReligion] = await db.insert(RELIGIONS).values({
+            name: religion.trim(),
+            is_user_added: true,
+            is_approved: false // Needs admin approval
+          });
+          religionId = newReligion.insertId;
+        }
+      }
+
+      // Handle caste - find existing or create new
+      let casteId = null;
+      if (caste && caste.trim() && religionId) {
+        // Check if caste exists for this religion
+        const existingCaste = await db
+          .select()
+          .from(CASTES_OR_DENOMINATIONS)
+          .where(
+            and(
+              eq(CASTES_OR_DENOMINATIONS.name, caste.trim()),
+              eq(CASTES_OR_DENOMINATIONS.religion_id, religionId)
+            )
+          )
+          .limit(1);
+
+        if (existingCaste.length > 0) {
+          casteId = existingCaste[0].id;
+        } else {
+          // Create new caste (needs admin approval)
+          const [newCaste] = await db.insert(CASTES_OR_DENOMINATIONS).values({
+            religion_id: religionId,
+            name: caste.trim(),
+            is_user_added: true,
+            is_approved: false // Needs admin approval
+          });
+          casteId = newCaste.insertId;
+        }
+      }
+
+      // Update the user with religion_id and caste_id
+      if (religionId || casteId) {
+        await db
+          .update(USER)
+          .set({
+            ...(religionId && { religion_id: religionId }),
+            ...(casteId && { caste_id: casteId })
+          })
+          .where(eq(USER.id, userId));
+      }
 
       // ====================================
       // INSERT USER IMAGES

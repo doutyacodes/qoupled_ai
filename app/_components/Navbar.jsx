@@ -24,6 +24,7 @@ import {
   Zap
 } from "lucide-react";
 import Image from "next/image";
+import { BASE_IMAGE_URL } from "@/utils/constants";
 
 const ModernNavbar = () => {
   const router = useRouter();
@@ -192,6 +193,12 @@ const ModernNavbar = () => {
     return displayName.charAt(0).toUpperCase();
   };
 
+  // Get user profile image URL or null
+  const getUserProfileImage = () => {
+    if (!user || !user.profileImageUrl) return null;
+    return `${BASE_IMAGE_URL}${user.profileImageUrl}`;
+  };
+
   // Navigation items with their paths and icons
   const navItems = [
     { path: "/my-matches", label: "My Matches", icon: Sparkles },
@@ -201,9 +208,9 @@ const ModernNavbar = () => {
     { path: "/chats", label: "AI Chat", icon: Bot, locked: !canAccessChats },
   ];
 
-  return (
+  return (                  
     <>
-      <nav className="w-full bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 shadow-lg sticky top-0 z-40">
+      <nav className="w-full bg-gradient-to-br from-red-600 via-red-500 to-orange-500 shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo - Hidden on mobile, shown on desktop */}
@@ -305,8 +312,18 @@ const ModernNavbar = () => {
                         : "hover:bg-white/20"
                     }`}
                   >
-                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-rose-600 font-semibold text-sm">
-                      {getUserInitial()}
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-rose-600 font-semibold text-sm overflow-hidden">
+                      {getUserProfileImage() ? (
+                        <Image 
+                          src={getUserProfileImage()} 
+                          alt="Profile" 
+                          width={32} 
+                          height={32}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getUserInitial()
+                      )}
                     </div>
                     <ChevronDown className="h-4 w-4 text-white" />
                   </button>
@@ -316,8 +333,18 @@ const ModernNavbar = () => {
                       {/* User Info Header */}
                       <div className="px-4 py-3 border-b border-gray-100">
                         <div className="flex items-center space-x-3 mb-3">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white font-semibold text-lg">
-                            {getUserInitial()}
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white font-semibold text-lg overflow-hidden">
+                            {getUserProfileImage() ? (
+                              <Image 
+                                src={getUserProfileImage()} 
+                                alt="Profile" 
+                                width={48} 
+                                height={48}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              getUserInitial()
+                            )}
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900">{getUserDisplayName()}</p>
@@ -426,8 +453,18 @@ const ModernNavbar = () => {
               {user && (
                 <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-rose-50 to-pink-50">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white font-semibold text-xl">
-                      {getUserInitial()}
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white font-semibold text-xl overflow-hidden">
+                      {getUserProfileImage() ? (
+                        <Image 
+                          src={getUserProfileImage()} 
+                          alt="Profile" 
+                          width={56} 
+                          height={56}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getUserInitial()
+                      )}
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 text-lg">{getUserDisplayName()}</p>

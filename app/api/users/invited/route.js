@@ -29,10 +29,14 @@ export async function GET(req) {
                 country: USER.country,
                 state: USER.state,
                 city: USER.city,
-                religion: USER.religion,
-                caste: USER.caste,
+                religionId: USER.religion_id,               // UPDATED
+                religionName: RELIGIONS.name,                // UPDATED
+                casteId: USER.caste_id,                     // UPDATED
+                casteName: CASTES_OR_DENOMINATIONS.name,     // UPDATED
             })
             .from(USER)
+            .leftJoin(RELIGIONS, eq(USER.religion_id, RELIGIONS.id))  // ADD THIS LINE
+            .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))  // ADD THIS LINE
             .innerJoin(
                 INVITATIONS,
                 and(
@@ -49,12 +53,11 @@ export async function GET(req) {
                     like(USER.country, `%${searchTerm}%`),
                     like(USER.state, `%${searchTerm}%`),
                     like(USER.city, `%${searchTerm}%`),
-                    like(USER.religion, `%${searchTerm}%`),
-                    like(USER.caste, `%${searchTerm}%`)
+                    like(RELIGIONS.name, `%${searchTerm}%`),              // UPDATED
+                    like(CASTES_OR_DENOMINATIONS.name, `%${searchTerm}%`) // UPDATED
                 )
             );
         }
-
         const users = await query.execute();
 
         return NextResponse.json({

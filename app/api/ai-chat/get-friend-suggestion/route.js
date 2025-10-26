@@ -10,7 +10,9 @@ import {
   USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
   PREFERENCE_OPTIONS,
-  USER_IMAGES // ADDED: Import USER_IMAGES table
+  USER_IMAGES, // ADDED: Import USER_IMAGES table
+  RELIGIONS,
+  CASTES_OR_DENOMINATIONS
 } from "@/utils/schema";
 import { db } from "@/utils";
 import { eq, and, ne, inArray, isNotNull, notInArray } from "drizzle-orm";
@@ -53,10 +55,15 @@ export async function POST(request) {
         country: USER.country,
         state: USER.state,
         city: USER.city,
-        religion: USER.religion
+        religionId: USER.religion_id,        // UPDATED
+        religionName: RELIGIONS.name,         // UPDATED
+        casteId: USER.caste_id,              // UPDATED
+        casteName: CASTES_OR_DENOMINATIONS.name  // UPDATED
       })
       .from(QUIZ_SEQUENCES)
       .innerJoin(USER, eq(QUIZ_SEQUENCES.user_id, USER.id))
+      .leftJoin(RELIGIONS, eq(USER.religion_id, RELIGIONS.id))  // ADD THIS LINE
+      .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))  // ADD THIS LINE
       .where(and(
         eq(QUIZ_SEQUENCES.user_id, userId),
         eq(QUIZ_SEQUENCES.quiz_id, 1),
@@ -168,7 +175,10 @@ export async function POST(request) {
           country: USER.country,
           state: USER.state,
           city: USER.city,
-          religion: USER.religion,
+          religionId: USER.religion_id,              // UPDATED
+          religionName: RELIGIONS.name,               // UPDATED
+          casteId: USER.caste_id,                    // UPDATED
+          casteName: CASTES_OR_DENOMINATIONS.name,    // UPDATED
           userMbtiType: QUIZ_SEQUENCES.type_sequence,
           aiMbtiType: USER_AI_FRIENDS.ai_friend_mbti_type,
           friendshipStrength: USER_AI_FRIENDS.friendship_strength
@@ -180,6 +190,8 @@ export async function POST(request) {
           eq(QUIZ_SEQUENCES.quiz_id, 1),
           eq(QUIZ_SEQUENCES.isCompleted, true)
         ))
+        .leftJoin(RELIGIONS, eq(USER.religion_id, RELIGIONS.id))  // ADD THIS LINE
+        .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))  // ADD THIS LINE
         .where(and(
           ne(USER_AI_FRIENDS.user_id, userId),
           eq(USER_AI_FRIENDS.is_active, true),
@@ -198,7 +210,10 @@ export async function POST(request) {
           country: USER.country,
           state: USER.state,
           city: USER.city,
-          religion: USER.religion,
+          religionId: USER.religion_id,              // UPDATED
+          religionName: RELIGIONS.name,               // UPDATED
+          casteId: USER.caste_id,                    // UPDATED
+          casteName: CASTES_OR_DENOMINATIONS.name,    // UPDATED
           userMbtiType: QUIZ_SEQUENCES.type_sequence,
           aiMbtiType: USER_AI_FRIENDS.ai_friend_mbti_type,
           friendshipStrength: USER_AI_FRIENDS.friendship_strength
@@ -210,6 +225,8 @@ export async function POST(request) {
           eq(QUIZ_SEQUENCES.quiz_id, 1),
           eq(QUIZ_SEQUENCES.isCompleted, true)
         ))
+        .leftJoin(RELIGIONS, eq(USER.religion_id, RELIGIONS.id))  // ADD THIS LINE
+        .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))  // ADD THIS LINE
         .where(and(
           ne(USER_AI_FRIENDS.user_id, userId),
           eq(USER_AI_FRIENDS.is_active, true),
@@ -397,11 +414,14 @@ export async function POST(request) {
       user: {
         id: suggestedUser.userId,
         username: suggestedUser.username,
-        profileImageUrl: suggestedUserProfileImageUrl, // UPDATED: Use from USER_IMAGES
+        profileImageUrl: suggestedUserProfileImageUrl,
         gender: suggestedUser.gender,
         age: calculateAge(suggestedUser.birthDate),
         location: `${suggestedUser.city || ''}, ${suggestedUser.country || ''}`.trim().replace(/^,\s*/, ''),
-        religion: suggestedUser.religion
+        religion: suggestedUser.religionName || null,  // UPDATED
+        caste: suggestedUser.casteName || null,        // UPDATED (if you want to include caste)
+        religionId: suggestedUser.religionId || null,  // UPDATED (optional)
+        casteId: suggestedUser.casteId || null         // UPDATED (optional)
       },
       commonAiFriends: commonAiCharacters,
       commonPreferences: commonPreferences,

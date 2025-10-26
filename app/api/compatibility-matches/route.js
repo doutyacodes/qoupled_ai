@@ -159,7 +159,9 @@ import {
   LANGUAGES, 
   MBTI_COMPATIBILITY,
   USER_EDUCATION,
-  USER_JOB
+  USER_JOB,
+  CASTES_OR_DENOMINATIONS,
+  RELIGIONS
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { eq, and, inArray, desc, asc, join } from 'drizzle-orm';
@@ -264,14 +266,18 @@ export async function GET(req) {
         country: USER.country,
         state: USER.state,
         city: USER.city,
-        religion: USER.religion,
-        caste: USER.caste,
+        religionId: USER.religion_id,               // UPDATED
+        religionName: RELIGIONS.name,                // UPDATED
+        casteId: USER.caste_id,                     // UPDATED
+        casteName: CASTES_OR_DENOMINATIONS.name,     // UPDATED
         height: USER.height,
         weight: USER.weight,
         income: USER.income,
         isProfileVerified: USER.isProfileVerified
       })
       .from(USER)
+      .leftJoin(RELIGIONS, eq(USER.religion_id, RELIGIONS.id))  // ADD THIS LINE
+      .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))  // ADD THIS LINE
       .where(inArray(USER.id, filteredUserIds));
 
     // Step 5: Fetch languages for each user
@@ -377,8 +383,10 @@ export async function GET(req) {
         country: user.country,
         state: user.state,
         city: user.city,
-        religion: user.religion,
-        caste: user.caste,
+        religion: user.religionName || null,         // UPDATED
+        caste: user.casteName || null,               // UPDATED
+        religionId: user.religionId || null,         // UPDATED (optional)
+        casteId: user.casteId || null,               // UPDATED (optional)
         height: user.height,
         weight: user.weight,
         income: user.income,

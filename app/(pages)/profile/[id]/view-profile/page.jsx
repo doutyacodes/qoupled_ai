@@ -39,6 +39,7 @@ import { useEffect, useState } from 'react';
 import { encryptText } from '@/utils/encryption';
 import { motion } from 'framer-motion';
 import { BASE_IMAGE_URL } from '@/utils/constants';
+import { getDefaultImage } from '@/utils/defaultImages';
 
 // Helper function to calculate age
 function calculateAge(birthDate) {
@@ -210,7 +211,7 @@ export default function ModernUserProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -231,7 +232,7 @@ export default function ModernUserProfile() {
 
   if (error || !userData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -359,12 +360,6 @@ export default function ModernUserProfile() {
       category: "professional"
     }
   ];
-
-  const getDefaultImage = (gender) => {
-    return gender === 'Female' 
-      ? "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop"
-      : "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop"
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600">

@@ -11,7 +11,9 @@ import {
   USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
   PREFERENCE_OPTIONS,
-  USER_IMAGES
+  USER_IMAGES,
+  RELIGIONS,
+  CASTES_OR_DENOMINATIONS
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { eq, and, sql } from 'drizzle-orm';
@@ -34,7 +36,7 @@ export async function GET(req, { params }) {
 
   try {
     // ====================================
-    // GET USER BASIC INFO WITH PROFILE IMAGE
+    // GET USER BASIC INFO WITH RELIGION & CASTE
     // ====================================
     const user = await db
       .select({
@@ -42,7 +44,7 @@ export async function GET(req, { params }) {
         username: USER.username,
         birthDate: USER.birthDate,
         gender: USER.gender,
-        
+
         // NEW PRICING FIELDS
         currentPlan: USER.currentPlan,
         isVerified: USER.isVerified,
@@ -57,32 +59,36 @@ export async function GET(req, { params }) {
         isPhoneVerified: USER.isPhoneVerified,
         email: USER.email,
         isEmailVerified: USER.isEmailVerified,
-        
+
         // Location and personal details
         country: USER.country,
         state: USER.state,
         city: USER.city,
-        religion: USER.religion,
-        caste: USER.caste,
-        
+
+        religion_id: USER.religion_id,
+        religion_name: RELIGIONS.name,
+        caste_id: USER.caste_id,
+        caste_name: CASTES_OR_DENOMINATIONS.name,
+
         // Physical attributes
         height: USER.height,
         weight: USER.weight,
         income: USER.income,
-        
+
         // Profile status
         isProfileVerified: USER.isProfileVerified,
         isProfileComplete: USER.isProfileComplete,
-        
-        // Profile image from USER_IMAGES (not USER table)
-        profileImageUrl: sql`COALESCE(${USER_IMAGES.image_url}, '')`.as('profileImageUrl')
 
+        // Profile image
+        profileImageUrl: sql`COALESCE(${USER_IMAGES.image_url}, '')`.as('profileImageUrl')
       })
       .from(USER)
       .leftJoin(USER_IMAGES, and(
         eq(USER_IMAGES.user_id, USER.id),
         eq(USER_IMAGES.is_profile, true)
       ))
+      .leftJoin(RELIGIONS, eq(USER.religion_id, RELIGIONS.id))
+      .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))
       .where(eq(USER.id, userId))
       .limit(1);
 
@@ -98,7 +104,6 @@ export async function GET(req, { params }) {
     // ====================================
     let lookingFor = null;
     try {
-      // Find the looking_for category
       const [category] = await db
         .select({ id: PREFERENCE_CATEGORIES.id })
         .from(PREFERENCE_CATEGORIES)
@@ -106,7 +111,6 @@ export async function GET(req, { params }) {
         .limit(1);
 
       if (category) {
-        // Get user's preference
         const [preference] = await db
           .select({
             value: PREFERENCE_OPTIONS.value
@@ -184,7 +188,7 @@ export async function GET(req, { params }) {
     const userData = {
       ...user[0],
       age,
-      lookingFor, // Add lookingFor preference
+      lookingFor,
       education,
       jobs,
       languages: userLanguages.map(lang => lang.language)

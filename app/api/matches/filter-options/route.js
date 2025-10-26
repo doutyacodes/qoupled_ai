@@ -6,8 +6,12 @@ import {
   JOB_TITLES,
   LANGUAGES,
   PREFERENCE_CATEGORIES,
-  PREFERENCE_OPTIONS
+  PREFERENCE_OPTIONS,
+  RELIGIONS,
+  CASTES_OR_DENOMINATIONS
 } from '@/utils/schema';
+import { Country, State, City } from 'country-state-city';
+
 import { NextResponse } from 'next/server';
 import { eq, isNotNull, sql } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
@@ -47,23 +51,32 @@ export async function GET(req) {
       .where(isNotNull(USER.city))
       .execute();
 
-    // ====================================
-    // GET UNIQUE RELIGIONS
-    // ====================================
-    const religions = await db
-      .selectDistinct({ religion: USER.religion })
-      .from(USER)
-      .where(isNotNull(USER.religion))
-      .execute();
+  // ====================================
+  // GET RELIGIONS (only approved)
+  // ====================================
+  const religions = await db
+    .select({
+      id: RELIGIONS.id,
+      name: RELIGIONS.name,
+      is_approved: RELIGIONS.is_approved
+    })
+    .from(RELIGIONS)
+    .where(eq(RELIGIONS.is_approved, true))
+    .execute();
 
-    // ====================================
-    // GET UNIQUE CASTES
-    // ====================================
-    const castes = await db
-      .selectDistinct({ caste: USER.caste })
-      .from(USER)
-      .where(isNotNull(USER.caste))
-      .execute();
+  // ====================================
+  // GET CASTES (only approved)
+  // ====================================
+  const castes = await db
+    .select({
+      id: CASTES_OR_DENOMINATIONS.id,
+      name: CASTES_OR_DENOMINATIONS.name,
+      religion_id: CASTES_OR_DENOMINATIONS.religion_id,
+      is_approved: CASTES_OR_DENOMINATIONS.is_approved
+    })
+    .from(CASTES_OR_DENOMINATIONS)
+    .where(eq(CASTES_OR_DENOMINATIONS.is_approved, true))
+    .execute();
 
     // ====================================
     // GET ALL EDUCATION LEVELS
@@ -188,16 +201,42 @@ export async function GET(req) {
     // PREPARE RESPONSE
     // ====================================
     const filterOptions = {
-      locations: {
-        countries: countries.map(c => c.country).filter(Boolean).sort(),
-        states: states.map(s => s.state).filter(Boolean).sort(),
-        cities: cities.map(c => c.city).filter(Boolean).sort()
-      },
-      demographics: {
-        religions: religions.map(r => r.religion).filter(Boolean).sort(),
-        castes: castes.map(c => c.caste).filter(Boolean).sort(),
-        lookingFor: lookingForOptions
-      },
+      // locations: {
+      //   countries: countries.map(c => c.country).filter(Boolean).sort(),
+      //   states: states.map(s => s.state).filter(Boolean).sort(),
+      //   cities: cities.map(c => c.city).filter(Boolean).sort()
+      // },
+      // demographics: {
+      //   religions: religions.map(r => r.religion).filter(Boolean).sort(),
+      //   castes: castes.map(c => c.caste).filter(Boolean).sort(),
+      //   lookingFor: lookingForOptions
+      // },
+
+        locations: {
+          countries: Country.getAllCountries().map(country => ({
+            value: country.isoCode,
+            label: country.name
+          })),
+          states: [], // Will be populated based on selected country
+          cities: [], // Will be populated based on selected state
+          // Keep existing database locations as fallback
+          dbCountries: countries.map(c => c.country).filter(Boolean).sort(),
+          dbStates: states.map(s => s.state).filter(Boolean).sort(),
+          dbCities: cities.map(c => c.city).filter(Boolean).sort()
+        },
+        demographics: {
+          religions: religions.map(r => ({
+            id: r.id,
+            name: r.name
+          })),
+          castes: castes.map(c => ({
+            id: c.id,
+            name: c.name,
+            religion_id: c.religion_id
+          })),
+          lookingFor: lookingForOptions
+        },
+
       education: {
         levels: educationLevels.map(e => ({ id: e.id, name: e.levelName }))
       },

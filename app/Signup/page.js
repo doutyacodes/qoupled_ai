@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Country, State, City } from 'country-state-city';
 import {
   Eye,
   EyeOff,
@@ -47,6 +48,15 @@ const ModernSignup = () => {
   const [imageUploadProgress, setImageUploadProgress] = useState({})
   const isUploadingRef = useRef(false);
 
+  const [countries, setCountries] = useState([]);
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [religions, setReligions] = useState([]);
+  const [castes, setCastes] = useState([]);
+  const [showCustomReligion, setShowCustomReligion] = useState(false);
+  const [showCustomCaste, setShowCustomCaste] = useState(false);
+  const [customReligion, setCustomReligion] = useState("");
+  const [customCaste, setCustomCaste] = useState("");
 
   const router = useRouter();
 
@@ -73,6 +83,100 @@ const ModernSignup = () => {
     bio: "",
     languages: [],
   });
+
+  useEffect(() => {
+    // Load countries
+    const countryList = Country.getAllCountries().map(country => ({
+      value: country.isoCode,
+      label: country.name
+    }));
+    setCountries(countryList);
+    
+    // Fetch religions from your API
+    fetchReligions();
+  }, []);
+
+  useEffect(() => {
+    if (formData.country) {
+      const stateList = State.getStatesOfCountry(formData.country).map(state => ({
+        value: state.isoCode,
+        label: state.name
+      }));
+      setStates(stateList);
+      setCities([]); // Reset cities when country changes
+      handleInputChange('state', '');
+      handleInputChange('city', '');
+    }
+  }, [formData.country]);
+
+  useEffect(() => {
+    if (formData.country && formData.state) {
+      const cityList = City.getCitiesOfState(formData.country, formData.state).map(city => ({
+        value: city.name,
+        label: city.name
+      }));
+      setCities(cityList);
+      handleInputChange('city', '');
+    }
+  }, [formData.country, formData.state]);
+
+  useEffect(() => {
+    if (formData.religion && formData.religion !== 'Other') {
+      fetchCastes(formData.religion);
+      setShowCustomReligion(false);
+      setShowCustomCaste(false);
+    } else if (formData.religion === 'Other') {
+      setShowCustomReligion(true);
+      setCastes([]);
+      setShowCustomCaste(false);
+    } else {
+      setCastes([]);
+      setShowCustomReligion(false);
+      setShowCustomCaste(false);
+    }
+  }, [formData.religion]);
+
+    const fetchReligions = async () => {
+      try {
+        const response = await fetch('/api/religions');
+        const data = await response.json();
+        
+        if (data.success) {
+          const religionList = data.data.map(religion => ({
+            value: religion.id,
+            label: religion.name
+          }));
+          // Add "Other" option
+          religionList.push({ value: 'Other', label: 'Other' });
+          setReligions(religionList);
+        }
+      } catch (error) {
+        console.error('Error fetching religions:', error);
+        // Fallback to empty religions list
+        setReligions([{ value: 'Other', label: 'Other' }]);
+      }
+    };
+
+    const fetchCastes = async (religionName) => {
+      try {
+        const response = await fetch(`/api/castes?religion=${encodeURIComponent(religionName)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const casteList = data.data.map(caste => ({
+            value: caste.id,
+            label: caste.name
+          }));
+          // Add "Other" option
+          casteList.push({ value: 'Other', label: 'Other' });
+          setCastes(casteList);
+        }
+      } catch (error) {
+        console.error('Error fetching castes:', error);
+        // Fallback to empty castes list with Other option
+        setCastes([{ value: 'Other', label: 'Other' }]);
+      }
+    };
 
   const availableLanguages = [
     "English",
@@ -464,6 +568,18 @@ const ModernSignup = () => {
           newErrors.profileImages = "Please select a profile photo";
         }
       }
+
+      if (field === "country" && !formData.country) {
+        newErrors.country = "Country is required";
+      }
+
+      if (field === "state" && !formData.state) {
+        newErrors.state = "State/Province is required";
+      }
+
+      if (field === "city" && !formData.city) {
+        newErrors.city = "City is required";
+      }
     });
 
     setErrors(newErrors);
@@ -520,6 +636,22 @@ const ModernSignup = () => {
         throw uploadError;
       }
 
+      // Handle custom religion/caste
+      let finalReligion = formData.religion;
+      let finalCaste = formData.caste;
+
+      if (formData.religion === 'Other' && customReligion) {
+        finalReligion = customReligion;
+      }
+
+      if (showCustomCaste && customCaste) {
+        finalCaste = customCaste;
+      }
+
+      const selectedCountry = countries.find(c => c.value === formData.country);
+      const selectedState = states.find(s => s.value === formData.state);
+      const selectedCity = cities.find(c => c.value === formData.city);
+
       // Encrypt password before sending
       const encryptedPassword = encryptText(formData.password);
 
@@ -531,11 +663,14 @@ const ModernSignup = () => {
         lookingFor: formData.lookingFor,
         phone: formData.phone || null,
         email: formData.email || null,
-        country: formData.country,
-        state: formData.state,
-        city: formData.city,
-        religion: formData.religion,
-        caste: formData.caste,
+        country: selectedCountry?.label || formData.country,
+        country_code: formData.country,
+        state: selectedState?.label || formData.state,
+        state_code: formData.state,
+        city: selectedCity?.label || formData.city,
+        city_code: formData.city,
+        religion: finalReligion,
+        caste: finalCaste,
         height: parseFloat(formData.height),
         weight: parseFloat(formData.weight),
         income: formData.income,
@@ -699,6 +834,302 @@ const ModernSignup = () => {
     };
 
 
+    if (fieldName === "country") {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-2"
+        >
+          <label className="block text-sm font-semibold text-gray-700">
+            Country
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Globe className="h-5 w-5 text-gray-600" />
+            </div>
+            <select
+              value={formData.country}
+              onChange={(e) => handleInputChange('country', e.target.value)}
+              className="w-full py-4 pl-12 pr-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 appearance-none"
+            >
+              <option value="">Select your country</option>
+              {countries.map(country => (
+                <option key={country.value} value={country.value}>
+                  {country.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          {errors.country && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-500 text-sm flex items-center"
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {errors.country}
+            </motion.p>
+          )}
+        </motion.div>
+      );
+    }
+
+    if (fieldName === "state") {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-2"
+        >
+          <label className="block text-sm font-semibold text-gray-700">
+            State/Province
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <MapPin className="h-5 w-5 text-gray-600" />
+            </div>
+            <select
+              value={formData.state}
+              onChange={(e) => handleInputChange('state', e.target.value)}
+              disabled={!formData.country}
+              className="w-full py-4 pl-12 pr-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 appearance-none disabled:opacity-50"
+            >
+              <option value="">Select your state</option>
+              {states.map(state => (
+                <option key={state.value} value={state.value}>
+                  {state.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          {errors.state && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-500 text-sm flex items-center"
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {errors.state}
+            </motion.p>
+          )}
+        </motion.div>
+      );
+    }
+
+    if (fieldName === "city") {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-2"
+        >
+          <label className="block text-sm font-semibold text-gray-700">
+            City
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <MapPin className="h-5 w-5 text-gray-600" />
+            </div>
+            <select
+              value={formData.city}
+              onChange={(e) => handleInputChange('city', e.target.value)}
+              disabled={!formData.state}
+              className="w-full py-4 pl-12 pr-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 appearance-none disabled:opacity-50"
+            >
+              <option value="">Select your city</option>
+              {cities.map(city => (
+                <option key={city.value} value={city.value}>
+                  {city.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          {errors.city && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-500 text-sm flex items-center"
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {errors.city}
+            </motion.p>
+          )}
+        </motion.div>
+      );
+    }
+
+    if (fieldName === "religion") {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-2"
+        >
+          <label className="block text-sm font-semibold text-gray-700">
+            Religion
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Church className="h-5 w-5 text-gray-600" />
+            </div>
+            <select
+              value={formData.religion}
+              onChange={(e) => {
+                handleInputChange('religion', e.target.value);
+                handleInputChange('caste', ''); // Reset caste when religion changes
+                setCustomCaste(''); // Reset custom caste
+              }}
+              className="w-full py-4 pl-12 pr-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 appearance-none"
+            >
+              <option value="">Select your religion</option>
+              {religions.map(religion => (
+                <option key={religion.value} value={religion.label}>
+                  {religion.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          
+          {showCustomReligion && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="space-y-2"
+            >
+              <label className="block text-sm font-semibold text-gray-700">
+                Specify Your Religion
+              </label>
+              <input
+                type="text"
+                value={customReligion}
+                onChange={(e) => setCustomReligion(e.target.value)}
+                placeholder="Enter your religion"
+                className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 placeholder-gray-400"
+              />
+            </motion.div>
+          )}
+          
+          {errors.religion && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-500 text-sm flex items-center"
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {errors.religion}
+            </motion.p>
+          )}
+        </motion.div>
+      );
+    }
+
+    if (fieldName === "caste") {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-2"
+        >
+          <label className="block text-sm font-semibold text-gray-700">
+            Caste/Denomination
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Users className="h-5 w-5 text-gray-600" />
+            </div>
+            <select
+              value={formData.caste}
+              onChange={(e) => {
+                if (e.target.value === 'Other') {
+                  setShowCustomCaste(true);
+                } else {
+                  setShowCustomCaste(false);
+                  handleInputChange('caste', e.target.value);
+                }
+              }}
+              disabled={!formData.religion || formData.religion === 'Other'}
+              className="w-full py-4 pl-12 pr-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 appearance-none disabled:opacity-50"
+            >
+              <option value="">Select your caste</option>
+              {castes.map(caste => (
+                <option key={caste.value} value={caste.label}>
+                  {caste.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          
+          {showCustomCaste && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="space-y-2"
+            >
+              <label className="block text-sm font-semibold text-gray-700">
+                Specify Your Caste/Denomination
+              </label>
+              <input
+                type="text"
+                value={customCaste}
+                onChange={(e) => {
+                  setCustomCaste(e.target.value);
+                  handleInputChange('caste', e.target.value);
+                }}
+                placeholder="Enter your caste or denomination"
+                className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 placeholder-gray-400"
+              />
+            </motion.div>
+          )}
+          
+          {errors.caste && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-500 text-sm flex items-center"
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {errors.caste}
+            </motion.p>
+          )}
+        </motion.div>
+      );
+    }
 
     if (fieldName === "profileImages") {
       return (
@@ -818,42 +1249,42 @@ const ModernSignup = () => {
       );
     }
 
-    // if (fieldName === "languages") {
-    //   return (
-    //     <motion.div
-    //       initial={{ opacity: 0, y: 20 }}
-    //       animate={{ opacity: 1, y: 0 }}
-    //       transition={{ duration: 0.3 }}
-    //       className="space-y-2"
-    //     >
-    //       <label className="block text-sm font-semibold text-gray-700">
-    //         Languages You Speak (Optional)
-    //       </label>
-    //       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-    //         {availableLanguages.map((lang) => (
-    //           <button
-    //             key={lang}
-    //             type="button"
-    //             onClick={() => handleLanguageToggle(lang)}
-    //             className={`py-2 px-4 rounded-xl border-2 transition-all duration-200 ${
-    //               formData.languages.includes(lang)
-    //                 ? "bg-rose-500 border-rose-500 text-white"
-    //                 : "bg-white border-gray-200 text-gray-700 hover:border-rose-300"
-    //             }`}
-    //           >
-    //             {lang}
-    //           </button>
-    //         ))}
-    //       </div>
-    //       <p className="text-xs text-gray-500">
-    //         Selected:{" "}
-    //         {formData.languages.length > 0
-    //           ? formData.languages.join(", ")
-    //           : "None"}
-    //       </p>
-    //     </motion.div>
-    //   );
-    // }
+    if (fieldName === "languages") {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-2"
+        >
+          <label className="block text-sm font-semibold text-gray-700">
+            Languages You Speak (Optional)
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {availableLanguages.map((lang) => (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => handleLanguageToggle(lang)}
+                className={`py-2 px-4 rounded-xl border-2 transition-all duration-200 ${
+                  formData.languages.includes(lang)
+                    ? "bg-rose-500 border-rose-500 text-white"
+                    : "bg-white border-gray-200 text-gray-700 hover:border-rose-300"
+                }`}
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500">
+            Selected:{" "}
+            {formData.languages.length > 0
+              ? formData.languages.join(", ")
+              : "None"}
+          </p>
+        </motion.div>
+      );
+    }
 
     const config = fieldConfigs[fieldName];
     if (!config) return null;

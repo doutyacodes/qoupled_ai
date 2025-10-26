@@ -728,11 +728,24 @@ export const USER = mysqlTable('user', {
   email: varchar('email', { length: 255 }).default(null),
   isEmailVerified: boolean('is_email_verified').default(false),
   profileImageUrl: varchar('profile_image_url', { length: 500 }).default(null),
+
   country: varchar('country', { length: 150 }).default(null),
+  country_code: varchar('country_code', { length: 10 }).default(null),
+
   state: varchar('state', { length: 150 }).default(null),
+  state_code: varchar('state_code', { length: 10 }).default(null),
+
   city: varchar('city', { length: 150 }).default(null),
-  religion: varchar('religion', { length: 150 }).default(null),
-  caste: varchar('caste', { length: 150 }).default(null),
+  city_code: varchar('city_code', { length: 20 }).default(null),
+
+
+  // religion: varchar('religion', { length: 150 }).default(null),
+  // caste: varchar('caste', { length: 150 }).default(null),
+
+  religion_id: int('religion_id').default(null).references(() => RELIGIONS.id),
+  caste_id: int('caste_id').default(null).references(() => CASTES_OR_DENOMINATIONS.id),
+
+
   height: decimal('height', { precision: 5, scale: 2 }).default(null),
   weight: decimal('weight', { precision: 5, scale: 2 }).default(null),
   income: varchar('income', { length: 100 }).default(null),
@@ -747,6 +760,30 @@ export const USER_IMAGES = mysqlTable('user_images', {
   is_profile: boolean('is_profile').default(false), // indicates if it's the current profile image
   uploaded_at: timestamp('uploaded_at').defaultNow(),
 });
+
+export const RELIGIONS = mysqlTable('religions', {
+  id: int('id').primaryKey().autoincrement(),
+  name: varchar('name', { length: 255 }).notNull(), // e.g., Hinduism, Islam, Christianity
+  is_user_added: boolean('is_user_added').default(false), // user-added religions
+  is_approved: boolean('is_approved').default(true), // approved entries
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow().onUpdateNow()
+});
+
+export const CASTES_OR_DENOMINATIONS = mysqlTable('castes_or_denominations', {
+  id: int('id').primaryKey().autoincrement(),
+  religion_id: int('religion_id').notNull().references(() => RELIGIONS.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(), // caste/subgroup/denomination name
+  type: mysqlEnum('type', ['caste','denomination','subgroup']).default('caste'),
+  is_user_added: boolean('is_user_added').default(false), // added by user
+  is_approved: boolean('is_approved').default(false), // admin must approve
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow().onUpdateNow(),
+}, (table) => ({
+  // prevent exact duplicate for same religion
+  uniqueRelCaste: unique('unique_religion_caste').on(table.religion_id, table.name)
+}));
+
 
 // Updated CONNECTIONS table with premium tracking
 export const CONNECTIONS = mysqlTable("connections", {

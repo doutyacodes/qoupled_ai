@@ -1,6 +1,7 @@
 "use client";
 
 import { BASE_IMAGE_URL } from "@/utils/constants";
+import { getDefaultImage } from "@/utils/defaultImages";
 import { encryptText } from "@/utils/encryption";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -111,6 +112,14 @@ export default function ModernMyMatches() {
     useState(false);
   const [checkingQuizStatus, setCheckingQuizStatus] = useState(true);
 
+  const [locationOptions, setLocationOptions] = useState({
+    countries: [],
+    states: [],
+    cities: []
+  });
+  const [religionOptions, setReligionOptions] = useState([]);
+  const [casteOptions, setCasteOptions] = useState([]);
+
   // Filter states
   const [filters, setFilters] = useState({
     matchQuality: "all",
@@ -138,6 +147,7 @@ export default function ModernMyMatches() {
     countries: [],
   });
 
+
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -160,6 +170,80 @@ export default function ModernMyMatches() {
       transition: { duration: 0.5 },
     },
   };
+
+  useEffect(() => {
+    const fetchReligionOptions = async () => {
+      try {
+        const response = await fetch('/api/religions');
+        const data = await response.json();
+        
+        if (data.success) {
+          setReligionOptions(data.data.map(religion => ({
+            value: religion.id,
+            label: religion.name
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching religions:', error);
+      }
+    };
+
+    fetchReligionOptions();
+  }, []);
+
+  // Add this useEffect to fetch caste options when religion is selected
+  useEffect(() => {
+    const fetchCasteOptions = async () => {
+      if (filters.religion && filters.religion !== 'all') {
+        try {
+          // Find religion name from ID
+          const religion = religionOptions.find(r => r.value === parseInt(filters.religion));
+          if (religion) {
+            const response = await fetch(`/api/castes?religion=${encodeURIComponent(religion.label)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+              setCasteOptions(data.data.map(caste => ({
+                value: caste.id,
+                label: caste.name
+              })));
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching castes:', error);
+          setCasteOptions([]);
+        }
+      } else {
+        setCasteOptions([]);
+      }
+    };
+
+    fetchCasteOptions();
+  }, [filters.religion, religionOptions]);
+
+  // Add this useEffect to populate location options from country-state-city
+  useEffect(() => {
+    const { Country, State, City } = require('country-state-city');
+    
+    setLocationOptions({
+      countries: Country.getAllCountries().map(country => ({
+        value: country.isoCode,
+        label: country.name
+      })),
+      states: filters.country && filters.country !== 'all' 
+        ? State.getStatesOfCountry(filters.country).map(state => ({
+            value: state.isoCode,
+            label: state.name
+          }))
+        : [],
+      cities: filters.state && filters.state !== 'all' 
+        ? City.getCitiesOfState(filters.country, filters.state).map(city => ({
+            value: city.name,
+            label: city.name
+          }))
+        : []
+    });
+  }, [filters.country, filters.state]);
 
   useEffect(() => {
     const fetchFilterOptions = async () => {
@@ -287,24 +371,62 @@ export default function ModernMyMatches() {
       );
     }
 
+    // if (filters.country !== "all") {
+    //   result = result.filter((match) => match.country === filters.country);
+    // }
+
+    // if (filters.state !== "all") {
+    //   result = result.filter((match) => match.state === filters.state);
+    // }
+
+    // if (filters.city !== "all") {
+    //   result = result.filter((match) => match.city === filters.city);
+    // }
+
+    // if (filters.religion !== "all") {
+    //   result = result.filter((match) => match.religion === filters.religion);
+    // }
+
+    // if (filters.caste !== "all") {
+    //   result = result.filter((match) => match.caste === filters.caste);
+    // }
+
+    // In your useEffect that applies filters, update the filtering logic:
+
+    // Country filter (using both country code and country name)
     if (filters.country !== "all") {
-      result = result.filter((match) => match.country === filters.country);
+      result = result.filter((match) => {
+        // Check if match has country_code (new structure) or country (old structure)
+        const matchCountry = match.country_code || match.country;
+        return matchCountry === filters.country;
+      });
     }
 
+    // State filter
     if (filters.state !== "all") {
-      result = result.filter((match) => match.state === filters.state);
+      result = result.filter((match) => {
+        const matchState = match.state_code || match.state;
+        return matchState === filters.state;
+      });
     }
 
+    // City filter
     if (filters.city !== "all") {
       result = result.filter((match) => match.city === filters.city);
     }
 
+    // Religion filter (using religion_id)
     if (filters.religion !== "all") {
-      result = result.filter((match) => match.religion === filters.religion);
+      result = result.filter((match) => 
+        match.religion_id === parseInt(filters.religion)
+      );
     }
 
+    // Caste filter (using caste_id)
     if (filters.caste !== "all") {
-      result = result.filter((match) => match.caste === filters.caste);
+      result = result.filter((match) => 
+        match.caste_id === parseInt(filters.caste)
+      );
     }
 
     if (filters.lookingFor !== "all") {
@@ -356,11 +478,25 @@ export default function ModernMyMatches() {
     setFilters({
       matchQuality: "all",
       hasRedFlags: "all",
-      minAge: 18,
-      maxAge: 40,
+      minAge: dynamicFilterOptions?.ranges.age.default.min || 18,
+      maxAge: dynamicFilterOptions?.ranges.age.default.max || 40,
       country: "all",
+      state: "all",
+      city: "all",
+      religion: "all",
+      caste: "all",
+      lookingFor: "all",
+      educationLevel: "all",
+      jobTitle: "all",
+      languages: [],
+      minHeight: dynamicFilterOptions?.ranges.height.default.min || 0,
+      maxHeight: dynamicFilterOptions?.ranges.height.default.max || 250,
+      minWeight: dynamicFilterOptions?.ranges.weight.default.min || 0,
+      maxWeight: dynamicFilterOptions?.ranges.weight.default.max || 150,
+      income: "all",
       isVerified: false,
     });
+    setCasteOptions([]);
   };
 
   const handleProtectedAction = (action) => {
@@ -425,15 +561,10 @@ export default function ModernMyMatches() {
     }
   };
 
-  const getDefaultImage = (gender) => {
-    return gender === "Female"
-      ? "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop"
-      : "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop";
-  };
 
   if (loading || checkingQuizStatus) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -462,7 +593,7 @@ export default function ModernMyMatches() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-400 via-pink-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -717,31 +848,174 @@ export default function ModernMyMatches() {
                     </select>
                   </div>
 
-                  {/* Country Filter */}
+                  {/* Country Filter - Updated */}
                   <div>
                     <label className="block text-white font-medium mb-2">
-                      Location
+                      Country
                     </label>
                     <select
                       value={filters.country}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
+                      onChange={(e) => {
+                        setFilters(prev => ({
                           ...prev,
                           country: e.target.value,
-                        }))
-                      }
+                          state: 'all', // Reset state when country changes
+                          city: 'all'   // Reset city when country changes
+                        }));
+                      }}
                       className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-white/50 focus:border-transparent"
                     >
-                      <option value="all" className="text-gray-800">
-                        All Locations
-                      </option>
-                      {filterOptions.countries.map((country) => (
+                      <option value="all" className="text-gray-800">All Countries</option>
+                      {locationOptions.countries.map((country) => (
                         <option
-                          key={country}
+                          key={country.value}
+                          value={country.value}
+                          className="text-gray-800"
+                        >
+                          {country.label}
+                        </option>
+                      ))}
+                      {/* Fallback to database countries */}
+                      {dynamicFilterOptions?.locations.dbCountries.map((country) => (
+                        <option
+                          key={`db-${country}`}
                           value={country}
                           className="text-gray-800"
                         >
                           {country}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* State Filter - Updated */}
+                  <div>
+                    <label className="block text-white font-medium mb-2">
+                      State
+                    </label>
+                    <select
+                      value={filters.state}
+                      onChange={(e) => {
+                        setFilters(prev => ({
+                          ...prev,
+                          state: e.target.value,
+                          city: 'all' // Reset city when state changes
+                        }));
+                      }}
+                      disabled={!filters.country || filters.country === 'all'}
+                      className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-white/50 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="all" className="text-gray-800">
+                        {filters.country && filters.country !== 'all' ? 'All States' : 'Select Country First'}
+                      </option>
+                      {locationOptions.states.map((state) => (
+                        <option
+                          key={state.value}
+                          value={state.value}
+                          className="text-gray-800"
+                        >
+                          {state.label}
+                        </option>
+                      ))}
+                      {/* Fallback to database states */}
+                      {dynamicFilterOptions?.locations.dbStates.map((state) => (
+                        <option
+                          key={`db-${state}`}
+                          value={state}
+                          className="text-gray-800"
+                        >
+                          {state}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* City Filter - Updated */}
+                  <div>
+                    <label className="block text-white font-medium mb-2">
+                      City
+                    </label>
+                    <select
+                      value={filters.city}
+                      onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
+                      disabled={!filters.state || filters.state === 'all'}
+                      className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-white/50 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="all" className="text-gray-800">
+                        {filters.state && filters.state !== 'all' ? 'All Cities' : 'Select State First'}
+                      </option>
+                      {locationOptions.cities.map((city) => (
+                        <option
+                          key={city.value}
+                          value={city.value}
+                          className="text-gray-800"
+                        >
+                          {city.label}
+                        </option>
+                      ))}
+                      {/* Fallback to database cities */}
+                      {dynamicFilterOptions?.locations.dbCities.map((city) => (
+                        <option
+                          key={`db-${city}`}
+                          value={city}
+                          className="text-gray-800"
+                        >
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Religion Filter - Updated */}
+                  <div>
+                    <label className="block text-white font-medium mb-2">
+                      Religion
+                    </label>
+                    <select
+                      value={filters.religion}
+                      onChange={(e) => {
+                        setFilters(prev => ({
+                          ...prev,
+                          religion: e.target.value,
+                          caste: 'all' // Reset caste when religion changes
+                        }));
+                      }}
+                      className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-white/50 focus:border-transparent"
+                    >
+                      <option value="all" className="text-gray-800">All Religions</option>
+                      {religionOptions.map((religion) => (
+                        <option
+                          key={religion.value}
+                          value={religion.value}
+                          className="text-gray-800"
+                        >
+                          {religion.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Caste Filter - Updated */}
+                  <div>
+                    <label className="block text-white font-medium mb-2">
+                      Caste/Denomination
+                    </label>
+                    <select
+                      value={filters.caste}
+                      onChange={(e) => setFilters(prev => ({ ...prev, caste: e.target.value }))}
+                      disabled={!filters.religion || filters.religion === 'all'}
+                      className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-white/50 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="all" className="text-gray-800">
+                        {filters.religion && filters.religion !== 'all' ? 'All Castes' : 'Select Religion First'}
+                      </option>
+                      {casteOptions.map((caste) => (
+                        <option
+                          key={caste.value}
+                          value={caste.value}
+                          className="text-gray-800"
+                        >
+                          {caste.label}
                         </option>
                       ))}
                     </select>
