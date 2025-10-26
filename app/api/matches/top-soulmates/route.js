@@ -15,13 +15,9 @@ import {
   USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
   PREFERENCE_OPTIONS,
-<<<<<<< HEAD
   USER_IMAGES, // ADDED: Import USER_IMAGES table
   RELIGIONS,
   CASTES_OR_DENOMINATIONS
-=======
-  USER_IMAGES
->>>>>>> 01d378f4f2eee2069bb8d21e4211a52f85bbf443
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { and, eq, ne, inArray, notInArray, isNotNull, or, sql } from 'drizzle-orm';
