@@ -1,26 +1,24 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import GlobalApi from "@/app/_services/GlobalApi";
 import {
-  Heart,
-  Filter,
-  Loader2,
   AlertTriangle,
-  Search,
-  Users,
-  Sparkles,
-  Zap,
-  UserCheck,
-  MapPin,
-  X,
   Bookmark,
   BookmarkCheck,
   Check,
   Clock,
+  Filter,
+  Loader2,
+  MapPin,
+  Search,
+  Sparkles,
+  UserCheck,
+  Users,
+  X,
+  Zap
 } from "lucide-react";
-import GlobalApi from "@/app/_services/GlobalApi";
-import ModernNavbar from "@/app/_components/Navbar";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const MatchedUsersPage = () => {
   const router = useRouter();

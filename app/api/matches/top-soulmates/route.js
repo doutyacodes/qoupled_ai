@@ -15,9 +15,13 @@ import {
   USER_PREFERENCE_VALUES,
   PREFERENCE_CATEGORIES,
   PREFERENCE_OPTIONS,
+<<<<<<< HEAD
   USER_IMAGES, // ADDED: Import USER_IMAGES table
   RELIGIONS,
   CASTES_OR_DENOMINATIONS
+=======
+  USER_IMAGES
+>>>>>>> 01d378f4f2eee2069bb8d21e4211a52f85bbf443
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
 import { and, eq, ne, inArray, notInArray, isNotNull, or, sql } from 'drizzle-orm';
@@ -374,7 +378,6 @@ export async function GET(req) {
           isProfileVerified: USER.isProfileVerified,
           isProfileComplete: USER.isProfileComplete,
           profileImageUrl: sql`COALESCE(MAX(${USER_IMAGES.image_url}), NULL)`.as('profileImageUrl')
-
         })
         .from(USER)
         .innerJoin(TEST_PROGRESS, eq(TEST_PROGRESS.user_id, USER.id))
@@ -388,7 +391,7 @@ export async function GET(req) {
           and(
             ne(USER.id, currentUserId),
             eq(TEST_PROGRESS.test_id, 2),
-            genderConditions, // Use lookingFor filter
+            genderConditions,
             isNotNull(USER.username),
             isNotNull(USER.birthDate)
           )
@@ -559,7 +562,7 @@ export async function GET(req) {
             ne(USER.id, currentUserId),
             eq(QUIZ_SEQUENCES.quiz_id, 1),
             eq(QUIZ_SEQUENCES.isCompleted, true),
-            genderConditions, // Use lookingFor filter
+            genderConditions,
             isNotNull(USER.username),
             isNotNull(USER.birthDate)
           )
