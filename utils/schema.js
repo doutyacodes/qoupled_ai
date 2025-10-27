@@ -739,10 +739,6 @@ export const USER = mysqlTable('user', {
   city: varchar('city', { length: 150 }).default(null),
   city_code: varchar('city_code', { length: 20 }).default(null),
 
-
-  // religion: varchar('religion', { length: 150 }).default(null),
-  // caste: varchar('caste', { length: 150 }).default(null),
-
   religion_id: int('religion_id').default(null).references(() => RELIGIONS.id),
   caste_id: int('caste_id').default(null).references(() => CASTES_OR_DENOMINATIONS.id),
 
@@ -784,7 +780,6 @@ export const CASTES_OR_DENOMINATIONS = mysqlTable('castes_or_denominations', {
   // prevent exact duplicate for same religion
   uniqueRelCaste: unique('unique_religion_caste').on(table.religion_id, table.name)
 }));
-
 
 // Updated CONNECTIONS table with premium tracking
 export const CONNECTIONS = mysqlTable("connections", {
