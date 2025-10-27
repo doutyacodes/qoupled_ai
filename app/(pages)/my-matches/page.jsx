@@ -285,7 +285,25 @@ export default function ModernMyMatches() {
 
       try {
         setLoading(true);
-        const response = await fetch("/api/matches/top-soulmates", {
+        
+        // Build query parameters from filters
+        const queryParams = new URLSearchParams();
+        
+        if (filters.minAge) queryParams.append('minAge', filters.minAge);
+        if (filters.maxAge) queryParams.append('maxAge', filters.maxAge);
+        if (filters.country !== 'all') queryParams.append('country', filters.country);
+        if (filters.state !== 'all') queryParams.append('state', filters.state);
+        if (filters.city !== 'all') queryParams.append('city', filters.city);
+        if (filters.religion !== 'all') queryParams.append('religion', filters.religion);
+        if (filters.caste !== 'all') queryParams.append('caste', filters.caste);
+        if (filters.minHeight > 0) queryParams.append('minHeight', filters.minHeight);
+        if (filters.maxHeight < 250) queryParams.append('maxHeight', filters.maxHeight);
+        if (filters.minWeight > 0) queryParams.append('minWeight', filters.minWeight);
+        if (filters.maxWeight < 150) queryParams.append('maxWeight', filters.maxWeight);
+        if (filters.isVerified) queryParams.append('isVerified', 'true');
+        if (filters.matchQuality !== 'all') queryParams.append('matchQuality', filters.matchQuality);
+
+        const response = await fetch(`/api/matches/top-soulmates?${queryParams.toString()}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -297,22 +315,14 @@ export default function ModernMyMatches() {
 
         if (data.success) {
           setMatches(data.matches);
-          setFilteredMatches(data.matches);
+          setFilteredMatches(data.matches); // Both will be the same now
           setUserPlan(data.userPlan || "free");
           setHasCompletedCompatibilityTest(
             data.hasCompletedCompatibilityTest || false
           );
           setMatchingType(data.matchingType || "personality");
 
-          // Extract filter options
-          const countries = [
-            ...new Set(
-              data.matches.map((match) => match.country).filter(Boolean)
-            ),
-          ];
-          setFilterOptions({ countries });
-
-          // Load saved profiles from localStorage
+          // Load saved profiles
           const saved = JSON.parse(
             localStorage.getItem("savedProfiles") || "[]"
           );
@@ -329,7 +339,7 @@ export default function ModernMyMatches() {
     };
 
     fetchMatches();
-  }, [token, router]);
+  }, [token, router, filters]); // ADD filters as dependency
 
   // Check quiz completion status
   useEffect(() => {
@@ -361,107 +371,107 @@ export default function ModernMyMatches() {
     checkQuizStatus();
   }, [token]);
 
-  // Apply filters
-  useEffect(() => {
-    let result = [...matches];
+  // // Apply filters
+  // useEffect(() => {
+  //   let result = [...matches];
 
-    if (filters.matchQuality !== "all") {
-      result = result.filter(
-        (match) => match.matchQuality === filters.matchQuality
-      );
-    }
+  //   if (filters.matchQuality !== "all") {
+  //     result = result.filter(
+  //       (match) => match.matchQuality === filters.matchQuality
+  //     );
+  //   }
 
-    // if (filters.country !== "all") {
-    //   result = result.filter((match) => match.country === filters.country);
-    // }
+  //   // if (filters.country !== "all") {
+  //   //   result = result.filter((match) => match.country === filters.country);
+  //   // }
 
-    // if (filters.state !== "all") {
-    //   result = result.filter((match) => match.state === filters.state);
-    // }
+  //   // if (filters.state !== "all") {
+  //   //   result = result.filter((match) => match.state === filters.state);
+  //   // }
 
-    // if (filters.city !== "all") {
-    //   result = result.filter((match) => match.city === filters.city);
-    // }
+  //   // if (filters.city !== "all") {
+  //   //   result = result.filter((match) => match.city === filters.city);
+  //   // }
 
-    // if (filters.religion !== "all") {
-    //   result = result.filter((match) => match.religion === filters.religion);
-    // }
+  //   // if (filters.religion !== "all") {
+  //   //   result = result.filter((match) => match.religion === filters.religion);
+  //   // }
 
-    // if (filters.caste !== "all") {
-    //   result = result.filter((match) => match.caste === filters.caste);
-    // }
+  //   // if (filters.caste !== "all") {
+  //   //   result = result.filter((match) => match.caste === filters.caste);
+  //   // }
 
-    // In your useEffect that applies filters, update the filtering logic:
+  //   // In your useEffect that applies filters, update the filtering logic:
 
-    // Country filter (using both country code and country name)
-    if (filters.country !== "all") {
-      result = result.filter((match) => {
-        // Check if match has country_code (new structure) or country (old structure)
-        const matchCountry = match.country_code || match.country;
-        return matchCountry === filters.country;
-      });
-    }
+  //   // Country filter (using both country code and country name)
+  //   if (filters.country !== "all") {
+  //     result = result.filter((match) => {
+  //       // Check if match has country_code (new structure) or country (old structure)
+  //       const matchCountry = match.country_code || match.country;
+  //       return matchCountry === filters.country;
+  //     });
+  //   }
 
-    // State filter
-    if (filters.state !== "all") {
-      result = result.filter((match) => {
-        const matchState = match.state_code || match.state;
-        return matchState === filters.state;
-      });
-    }
+  //   // State filter
+  //   if (filters.state !== "all") {
+  //     result = result.filter((match) => {
+  //       const matchState = match.state_code || match.state;
+  //       return matchState === filters.state;
+  //     });
+  //   }
 
-    // City filter
-    if (filters.city !== "all") {
-      result = result.filter((match) => match.city === filters.city);
-    }
+  //   // City filter
+  //   if (filters.city !== "all") {
+  //     result = result.filter((match) => match.city === filters.city);
+  //   }
 
-    // Religion filter (using religion_id)
-    if (filters.religion !== "all") {
-      result = result.filter((match) => 
-        match.religion_id === parseInt(filters.religion)
-      );
-    }
+  //   // Religion filter (using religion_id)
+  //   if (filters.religion !== "all") {
+  //     result = result.filter((match) => 
+  //       match.religion_id === parseInt(filters.religion)
+  //     );
+  //   }
 
-    // Caste filter (using caste_id)
-    if (filters.caste !== "all") {
-      result = result.filter((match) => 
-        match.caste_id === parseInt(filters.caste)
-      );
-    }
+  //   // Caste filter (using caste_id)
+  //   if (filters.caste !== "all") {
+  //     result = result.filter((match) => 
+  //       match.caste_id === parseInt(filters.caste)
+  //     );
+  //   }
 
-    if (filters.lookingFor !== "all") {
-      result = result.filter(
-        (match) => match.lookingFor === filters.lookingFor
-      );
-    }
+  //   if (filters.lookingFor !== "all") {
+  //     result = result.filter(
+  //       (match) => match.lookingFor === filters.lookingFor
+  //     );
+  //   }
 
-    // Age range
-    result = result.filter(
-      (match) => match.age >= filters.minAge && match.age <= filters.maxAge
-    );
+  //   // Age range
+  //   result = result.filter(
+  //     (match) => match.age >= filters.minAge && match.age <= filters.maxAge
+  //   );
 
-    // Height range (if available)
-    if (filters.minHeight > 0) {
-      result = result.filter(
-        (match) =>
-          match.height >= filters.minHeight && match.height <= filters.maxHeight
-      );
-    }
+  //   // Height range (if available)
+  //   if (filters.minHeight > 0) {
+  //     result = result.filter(
+  //       (match) =>
+  //         match.height >= filters.minHeight && match.height <= filters.maxHeight
+  //     );
+  //   }
 
-    // Weight range (if available)
-    if (filters.minWeight > 0) {
-      result = result.filter(
-        (match) =>
-          match.weight >= filters.minWeight && match.weight <= filters.maxWeight
-      );
-    }
+  //   // Weight range (if available)
+  //   if (filters.minWeight > 0) {
+  //     result = result.filter(
+  //       (match) =>
+  //         match.weight >= filters.minWeight && match.weight <= filters.maxWeight
+  //     );
+  //   }
 
-    if (filters.isVerified) {
-      result = result.filter((match) => match.isProfileVerified);
-    }
+  //   if (filters.isVerified) {
+  //     result = result.filter((match) => match.isProfileVerified);
+  //   }
 
-    setFilteredMatches(result);
-  }, [filters, matches]);
+  //   setFilteredMatches(result);
+  // }, [filters, matches]);
 
   const toggleSaveProfile = (userId) => {
     setSavedProfiles((prev) => {
@@ -1075,40 +1085,8 @@ export default function ModernMyMatches() {
                       />
                     </div>
                   </div>
-                  {/* Religion Filter */}
-                  <div>
-                    <label className="block text-white font-medium mb-2">
-                      Religion
-                    </label>
-                    <select
-                      value={filters.religion}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          religion: e.target.value,
-                        }))
-                      }
-                      className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-3"
-                    >
-                      <option value="all" className="text-gray-800">
-                        All Religions
-                      </option>
-                      {dynamicFilterOptions?.demographics.religions.map(
-                        (religion) => (
-                          <option
-                            key={religion}
-                            value={religion}
-                            className="text-gray-800"
-                          >
-                            {religion}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </div>
-
                   {/* State Filter */}
-                  <div>
+                  {/* <div>
                     <label className="block text-white font-medium mb-2">
                       State
                     </label>
@@ -1135,10 +1113,10 @@ export default function ModernMyMatches() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
 
                   {/* City Filter */}
-                  <div>
+                  {/* <div>
                     <label className="block text-white font-medium mb-2">
                       City
                     </label>
@@ -1165,7 +1143,7 @@ export default function ModernMyMatches() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
 
                   {/* Height Range */}
                   <div className="md:col-span-2">

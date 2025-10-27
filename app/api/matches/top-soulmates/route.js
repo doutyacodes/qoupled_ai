@@ -20,7 +20,7 @@ import {
   CASTES_OR_DENOMINATIONS
 } from '@/utils/schema';
 import { NextResponse } from 'next/server';
-import { and, eq, ne, inArray, notInArray, isNotNull, or, sql } from 'drizzle-orm';
+import { and, eq, ne, inArray, notInArray, isNotNull, or, sql, gte, lte } from 'drizzle-orm';
 import { authenticate } from '@/lib/jwtMiddleware';
 
 // MBTI compatibility matrix for personality-based matching
@@ -240,7 +240,6 @@ function calculateAge(birthDate) {
 }
 
 export async function GET(req) {
-  // Authenticate user
   const authResult = await authenticate(req);
   if (!authResult.authenticated) {
     return authResult.response;
@@ -248,6 +247,24 @@ export async function GET(req) {
 
   const userData = authResult.decoded_Data;
   const currentUserId = userData.userId;
+
+  // Get filter parameters from URL search params
+  const { searchParams } = new URL(req.url);
+  const filters = {
+    minAge: searchParams.get('minAge') ? parseInt(searchParams.get('minAge')) : null,
+    maxAge: searchParams.get('maxAge') ? parseInt(searchParams.get('maxAge')) : null,
+    country: searchParams.get('country') || 'all',
+    state: searchParams.get('state') || 'all',
+    city: searchParams.get('city') || 'all',
+    religion: searchParams.get('religion') || 'all',
+    caste: searchParams.get('caste') || 'all',
+    minHeight: searchParams.get('minHeight') ? parseInt(searchParams.get('minHeight')) : null,
+    maxHeight: searchParams.get('maxHeight') ? parseInt(searchParams.get('maxHeight')) : null,
+    minWeight: searchParams.get('minWeight') ? parseInt(searchParams.get('minWeight')) : null,
+    maxWeight: searchParams.get('maxWeight') ? parseInt(searchParams.get('maxWeight')) : null,
+    isVerified: searchParams.get('isVerified') === 'true',
+    matchQuality: searchParams.get('matchQuality') || 'all'
+  };
 
   try {
     // Get current user's info including plan and lookingFor preference
@@ -349,6 +366,77 @@ export async function GET(req) {
       genderConditions = eq(USER.gender, userLookingFor);
     }
 
+    // Build WHERE conditions based on filters
+    const whereConditions = [
+      ne(USER.id, currentUserId),
+      isNotNull(USER.username),
+      isNotNull(USER.birthDate)
+    ];
+
+    // Gender filter
+    whereConditions.push(genderConditions);
+
+    // Age filter (converted to birthDate range)
+    if (filters.minAge && filters.maxAge) {
+      const currentYear = new Date().getFullYear();
+      const maxBirthYear = currentYear - filters.minAge;
+      const minBirthYear = currentYear - filters.maxAge;
+      
+      whereConditions.push(
+        sql`EXTRACT(YEAR FROM ${USER.birthDate}) BETWEEN ${minBirthYear} AND ${maxBirthYear}`
+      );
+    }
+
+    // Country filter
+    if (filters.country && filters.country !== 'all') {
+      whereConditions.push(eq(USER.country_code, filters.country));
+    }
+
+    // State filter
+    if (filters.state && filters.state !== 'all') {
+      whereConditions.push(eq(USER.state_code, filters.state));
+    }
+
+    // City filter
+    if (filters.city && filters.city !== 'all') {
+      whereConditions.push(eq(USER.city, filters.city));
+    }
+
+    // Religion filter
+    if (filters.religion && filters.religion !== 'all') {
+      whereConditions.push(eq(USER.religion_id, parseInt(filters.religion)));
+    }
+
+    // Caste filter
+    if (filters.caste && filters.caste !== 'all') {
+      whereConditions.push(eq(USER.caste_id, parseInt(filters.caste)));
+    }
+
+    // Height filter
+    if (filters.minHeight && filters.maxHeight) {
+      whereConditions.push(
+        and(
+          gte(USER.height, filters.minHeight),
+          lte(USER.height, filters.maxHeight)
+        )
+      );
+    }
+
+    // Weight filter
+    if (filters.minWeight && filters.maxWeight) {
+      whereConditions.push(
+        and(
+          gte(USER.weight, filters.minWeight),
+          lte(USER.weight, filters.maxWeight)
+        )
+      );
+    }
+
+    // Verified filter
+    if (filters.isVerified) {
+      whereConditions.push(eq(USER.isProfileVerified, true));
+    }
+
     if (useCompatibilityMatching) {
       console.log("inthe compatibuility score get")
       // ========================================
@@ -364,8 +452,12 @@ export async function GET(req) {
           birthDate: USER.birthDate,
           gender: USER.gender,
           country: USER.country,
+          country_code: USER.country_code,  // ADD THIS
           state: USER.state,
+          state_code: USER.state_code,      // ADD THIS
           city: USER.city,
+          religion_id: USER.religion_id,    // ADD THIS
+          caste_id: USER.caste_id,          // ADD THIS
           religion: RELIGIONS.name,
           caste: CASTES_OR_DENOMINATIONS.name,
           height: USER.height,
@@ -384,13 +476,7 @@ export async function GET(req) {
         .leftJoin(RELIGIONS, eq(USER.religion_id, RELIGIONS.id))
         .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))
         .where(
-          and(
-            ne(USER.id, currentUserId),
-            eq(TEST_PROGRESS.test_id, 2),
-            genderConditions,
-            isNotNull(USER.username),
-            isNotNull(USER.birthDate)
-          )
+          and(...whereConditions, eq(TEST_PROGRESS.test_id, 2))  // USE whereConditions HERE
         )
         .groupBy(
           USER.id,
@@ -398,8 +484,14 @@ export async function GET(req) {
           USER.birthDate,
           USER.gender,
           USER.country,
+          USER.country_code,    // ADD THIS
           USER.state,
+          USER.state_code,      // ADD THIS
           USER.city,
+          USER.religion_id,     // ADD THIS
+          USER.caste_id,        // ADD THIS
+          RELIGIONS.name,
+          CASTES_OR_DENOMINATIONS.name,
           USER.height,
           USER.weight,
           USER.income,
@@ -422,8 +514,8 @@ export async function GET(req) {
       // Calculate compatibility scores
       const matchesWithScores = [];
       for (const potentialMatch of filteredByPreference) {
-        const userAge = calculateAge(potentialMatch.birthDate);
-        if (userAge < minAge || userAge > maxAge) continue;
+        // const userAge = calculateAge(potentialMatch.birthDate);
+        // if (userAge < minAge || userAge > maxAge) continue;
 
         // Check if compatibility already calculated
         const existingCompatibility = await db
@@ -479,6 +571,18 @@ export async function GET(req) {
           }
         }
 
+        // Apply match quality filter if specified
+        if (filters.matchQuality && filters.matchQuality !== 'all') {
+          potentialMatches = potentialMatches.filter(match => 
+            match.matchQuality === filters.matchQuality
+          );
+        }
+
+        // Sort and take top 10
+        potentialMatches = potentialMatches
+          .sort((a, b) => (b.compatibilityScore || b.personalityScore) - (a.compatibilityScore || a.personalityScore))
+          .slice(0, 10);
+
         // Get additional profile information
         const education = await db
           .select({
@@ -506,7 +610,7 @@ export async function GET(req) {
 
         matchesWithScores.push({
           ...potentialMatch,
-          age: userAge,
+          // age: userAge,
           compatibilityScore: compatibilityData.compatibilityScore,
           hasRedFlags: compatibilityData.hasRedFlags,
           redFlagDetails: compatibilityData.redFlagDetails,
@@ -533,8 +637,12 @@ export async function GET(req) {
           birthDate: USER.birthDate,
           gender: USER.gender,
           country: USER.country,
+          country_code: USER.country_code,  // ADD THIS
           state: USER.state,
+          state_code: USER.state_code,      // ADD THIS
           city: USER.city,
+          religion_id: USER.religion_id,    // ADD THIS
+          caste_id: USER.caste_id,          // ADD THIS
           religion: RELIGIONS.name,
           caste: CASTES_OR_DENOMINATIONS.name,
           height: USER.height,
@@ -555,29 +663,32 @@ export async function GET(req) {
         .leftJoin(CASTES_OR_DENOMINATIONS, eq(USER.caste_id, CASTES_OR_DENOMINATIONS.id))
         .where(
           and(
-            ne(USER.id, currentUserId),
+            ...whereConditions,  // USE whereConditions HERE
             eq(QUIZ_SEQUENCES.quiz_id, 1),
-            eq(QUIZ_SEQUENCES.isCompleted, true),
-            genderConditions,
-            isNotNull(USER.username),
-            isNotNull(USER.birthDate)
+            eq(QUIZ_SEQUENCES.isCompleted, true)
           )
         )
-         .groupBy(
-            USER.id,
-            USER.username,
-            USER.birthDate,
-            USER.gender,
-            USER.country,
-            USER.state,
-            USER.city,
-            USER.height,
-            USER.weight,
-            USER.income,
-            USER.isProfileVerified,
-            USER.isProfileComplete,
-            QUIZ_SEQUENCES.type_sequence
-          )
+        .groupBy(
+          USER.id,
+          USER.username,
+          USER.birthDate,
+          USER.gender,
+          USER.country,
+          USER.country_code,    // ADD THIS
+          USER.state,
+          USER.state_code,      // ADD THIS
+          USER.city,
+          USER.religion_id,     // ADD THIS
+          USER.caste_id,        // ADD THIS
+          RELIGIONS.name,
+          CASTES_OR_DENOMINATIONS.name,
+          USER.height,
+          USER.weight,
+          USER.income,
+          USER.isProfileVerified,
+          USER.isProfileComplete,
+          QUIZ_SEQUENCES.type_sequence
+        )
         .execute();
 
       // Filter by mutual lookingFor preference
