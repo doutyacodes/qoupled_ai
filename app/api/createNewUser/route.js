@@ -22,6 +22,7 @@ export async function POST(req) {
   try {
     const data = await req.json();
     const { 
+      name,
       username, 
       password, 
       birthDate, 
@@ -49,7 +50,7 @@ export async function POST(req) {
     // ====================================
     // VALIDATE REQUIRED FIELDS
     // ====================================
-    if (!username || !password || !birthDate || !gender) {
+    if (!name || !username || !password || !birthDate || !gender) {
       return NextResponse.json(
         { message: "Username, password, birth date, and gender are required", success: false },
         { status: 400 }
@@ -211,6 +212,7 @@ export async function POST(req) {
       // PREPARE USER DATA
       // ====================================
       const userData = {
+        name: name.trim(),
         username: username.trim(),
         password: password, // Already encrypted from frontend
         birthDate: birthDateObj,
@@ -338,6 +340,7 @@ export async function POST(req) {
       const [newUser] = await db
         .select({
           id: USER.id,
+          name: USER.name,
           username: USER.username,
           gender: USER.gender,
           birthDate: USER.birthDate,
@@ -536,6 +539,7 @@ export async function POST(req) {
       // ====================================
       const responseUser = {
         id: newUser.id,
+        name: newUser.name,
         username: newUser.username,
         gender: newUser.gender,
         age: userAge,

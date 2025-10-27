@@ -708,6 +708,7 @@ export const GROUP_CHAT_MESSAGES = mysqlTable('group_chat_messages', {
 
 export const USER = mysqlTable('user', {
   id: int('id').notNull().primaryKey().autoincrement(),
+  name: varchar('name', { length: 255 }).notNull(),
   username: varchar('username', { length: 255 }).notNull(),
   birthDate: date('birthDate').notNull(),
   gender: varchar('gender', { length: 150 }).default(null),

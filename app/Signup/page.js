@@ -27,6 +27,7 @@ import {
   Briefcase,
   GraduationCap,
   Users,
+  AtSign,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -61,6 +62,7 @@ const ModernSignup = () => {
   const router = useRouter();
 
   const [formData, setFormData] = useState({
+    name: "",
     username: "",
     password: "",
     confirmPassword: "",
@@ -201,6 +203,7 @@ const ModernSignup = () => {
       subtitle: "Let's start with the essentials",
       icon: <User className="h-6 w-6" />,
       fields: [
+        "name",
         "username",
         "password",
         "confirmPassword",
@@ -435,6 +438,14 @@ const ModernSignup = () => {
     const currentFields = formSections[currentSection].fields;
 
     currentFields.forEach((field) => {
+      if (field === "name") {
+        if (!formData.name.trim()) {
+          newErrors.name = "Name is required";
+        } else if (formData.name.length < 3) {
+          newErrors.name = "Name must be at least 3 characters";
+        }
+      }
+
       if (field === "username") {
         if (!formData.username.trim()) {
           newErrors.username = "Username is required";
@@ -656,6 +667,7 @@ const ModernSignup = () => {
       const encryptedPassword = encryptText(formData.password);
 
       const signupData = {
+        name: formData.name,
         username: formData.username,
         password: encryptedPassword,
         birthDate: formData.birthDate,
@@ -717,7 +729,8 @@ const ModernSignup = () => {
 
   const getFieldIcon = (fieldName) => {
     const icons = {
-      username: <User className="h-5 w-5 text-gray-600" />,
+      name: <User className="h-5 w-5 text-gray-600" />,
+      username: <AtSign className="h-5 w-5 text-gray-600" />,
       password: <Lock className="h-5 w-5 text-gray-600" />,
       confirmPassword: <Lock className="h-5 w-5 text-gray-600" />,
       birthDate: <Calendar className="h-5 w-5 text-gray-600" />,
@@ -743,6 +756,11 @@ const ModernSignup = () => {
       "w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 text-gray-800 placeholder-gray-400";
 
     const fieldConfigs = {
+      name: {
+        type: "text",
+        placeholder: "Enter your name",
+        label: "Name",
+      },
       username: {
         type: "text",
         placeholder: "Choose a unique username",
